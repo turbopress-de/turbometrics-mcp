@@ -10,7 +10,7 @@ import { listAlerts } from './tools/listAlerts.js';
 import { getRumSummary } from './tools/getRumSummary.js';
 import { compareDomains } from './tools/compareDomains.js';
 import { triggerScan } from './tools/triggerScan.js';
-import { createAlert } from './tools/createAlert.js';
+import { markAlertsRead } from './tools/createAlert.js';
 
 const TOOLS = [
   listDomains,
@@ -21,7 +21,7 @@ const TOOLS = [
   getRumSummary,
   compareDomains,
   triggerScan,
-  createAlert,
+  markAlertsRead,
 ];
 
 function extractToken(req) {
@@ -50,6 +50,8 @@ function jsonSchemaToZod(schema) {
       field = z.number();
     } else if (prop.type === 'boolean') {
       field = z.boolean();
+    } else if (prop.type === 'array') {
+      field = z.array(z.any());
     } else {
       field = z.any();
     }

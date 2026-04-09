@@ -14,7 +14,7 @@ export const getLatestScan = {
     required: ['domain_url'],
   },
   async handler(token, { domain_url }) {
-    const data = await api.get(token, `/scans?domain=${encodeURIComponent(domain_url)}&limit=1`);
+    const data = await api.get(token, `/scans?domain=${encodeURIComponent(domain_url)}&status=finished&limit=1`);
     const scans = Array.isArray(data) ? data : (data.data ?? []);
 
     if (scans.length === 0) {

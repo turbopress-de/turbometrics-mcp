@@ -2,7 +2,7 @@ import { api } from '../api.js';
 
 export const listDomains = {
   name: 'list_domains',
-  description: 'Listet alle überwachten Domains mit aktuellem Score und Alert-Status auf.',
+  description: 'Listet alle überwachten Domains mit Status und letztem Scan-Zeitpunkt auf.',
   inputSchema: {
     type: 'object',
     properties: {},
@@ -13,11 +13,11 @@ export const listDomains = {
     const domains = Array.isArray(data) ? data : (data.data ?? []);
 
     return domains.map((d) => ({
-      name: d.name,
+      host: d.host,
       url: d.url,
-      current_score: d.current_score,
-      last_scan_at: d.last_scan_at,
-      open_alerts_count: d.open_alerts_count,
+      schedule: d.schedule,
+      is_active: d.is_active,
+      last_dispatched_at: d.last_dispatched_at,
     }));
   },
 };

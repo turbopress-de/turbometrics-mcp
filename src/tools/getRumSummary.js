@@ -10,19 +10,27 @@ export const getRumSummary = {
         type: 'string',
         description: 'URL der Domain (z.B. https://example.com)',
       },
-      days: {
-        type: 'number',
-        description: 'Zeitraum in Tagen (Standard: 30)',
-        default: 30,
+      period: {
+        type: 'string',
+        enum: ['24h', '7d', '30d'],
+        description: "Zeitraum: '24h', '7d' oder '30d' (Standard: '30d')",
+        default: '30d',
       },
     },
     required: ['domain_url'],
   },
-  async handler(token, { domain_url, days = 30 }) {
-    const data = await api.get(
-      token,
-      `/rum/summary?domain=${encodeURIComponent(domain_url)}&days=${days}`
+  async handler(token, { domain_url, period = '30d' }) {
+    const sitesData = await api.get(token, '/rum/sites');
+    const sites = Array.isArray(sitesData) ? sitesData : (sitesData.data ?? []);
+
+    const site = sites.find(
+      (s) => s.domain === domain_url || s.url === domain_url
     );
+    if (!site) {
+      throw new Error(`RUM-Site nicht gefunden für Domain: ${domain_url}`);
+    }
+
+    const data = await api.get(token, `/rum/sites/${site.id}/summary?period=${encodeURIComponent(period)}`);
 
     return {
       lcp_p75: data.lcp_p75,
