@@ -75,6 +75,6 @@ API access is available from the **Starter plan** and above.
 
 | Plan | Daily API Limit |
 |------|----------------|
-| Starter | 500 requests |
+| Starter | 1,000 requests |
 | Pro | 5,000 requests |
 | Agency | Unlimited |
