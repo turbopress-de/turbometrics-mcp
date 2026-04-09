@@ -24,23 +24,17 @@ export const getLatestScan = {
     const { public_id, result: listResult } = scans[0];
 
     const detail = await api.get(token, `/scans/${encodeURIComponent(public_id)}`);
-    const result = detail.result ?? listResult ?? {};
-
-    const findings = (result.findings ?? []).filter(
-      (f) => f.severity === 'bad' || f.severity === 'warning'
-    );
+    const result = detail.result ?? {};
 
     return {
-      public_id,
+      public_id: detail.public_id ?? public_id,
       scores: result.scores ?? {},
       metrics: {
-        ttfb: result.ttfb,
-        psi_score_mobile: result.psi_score_mobile,
-        psi_score_desktop: result.psi_score_desktop,
-        cwv_mobile: result.cwv_mobile,
-        cwv_desktop: result.cwv_desktop,
+        ttfb_ms: result.metrics?.ttfb_ms,
       },
-      findings,
+      findings: (result.findings ?? []).filter((f) =>
+        ['bad', 'warning'].includes(f.severity)
+      ),
       summary_short: result.summary_short,
     };
   },
