@@ -34,13 +34,13 @@ export const compareDomains = {
 
     const extract = (scan, url) => ({
       domain: url,
-      score: scan.score,
-      ttfb: scan.ttfb,
-      lcp: scan.cwv_metrics?.lcp,
-      cls: scan.cwv_metrics?.cls,
-      tbt: scan.cwv_metrics?.tbt,
-      findings_count: (scan.findings ?? []).length,
-      bad_findings: (scan.findings ?? []).filter((f) => f.severity === 'bad').length,
+      score: scan.result?.scores?.overall,
+      ttfb: scan.result?.metrics?.ttfb_ms,
+      lcp: scan.result?.metrics?.lcp,
+      cls: scan.result?.metrics?.cls,
+      tbt: scan.result?.metrics?.tbt,
+      findings_count: (scan.result?.findings ?? []).length,
+      bad_findings: (scan.result?.findings ?? []).filter((f) => f.severity === 'bad').length,
     });
 
     return {

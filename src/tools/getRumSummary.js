@@ -30,7 +30,8 @@ export const getRumSummary = {
       throw new Error(`RUM-Site nicht gefunden für Domain: ${domain_url}`);
     }
 
-    const data = await api.get(token, `/rum/sites/${site.id}/summary?period=${encodeURIComponent(period)}`);
+    const summary = await api.get(token, `/rum/sites/${site.id}/summary?period=${encodeURIComponent(period)}`);
+    const data = summary.data ?? summary;
 
     return {
       lcp_p75: data.lcp_p75,

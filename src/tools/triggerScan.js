@@ -14,7 +14,8 @@ export const triggerScan = {
     required: ['domain_url'],
   },
   async handler(token, { domain_url }) {
-    const result = await api.post(token, '/scans', { url: domain_url });
+    const response = await api.post(token, '/scans', { url: domain_url });
+    const result = response.data ?? response;
 
     return {
       scan_id: result.id ?? result.scan_id,

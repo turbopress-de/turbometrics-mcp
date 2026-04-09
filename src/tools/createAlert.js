@@ -15,7 +15,8 @@ export const markAlertsRead = {
     required: ['alert_ids'],
   },
   async handler(token, { alert_ids }) {
-    const result = await api.post(token, '/alerts/mark-read', { alert_ids });
+    const response = await api.post(token, '/alerts/mark-read', { alert_ids });
+    const result = response.data ?? response;
     return {
       message: result.message ?? 'Alerts wurden als gelesen markiert.',
     };

@@ -15,7 +15,7 @@ export const getFindings = {
   },
   async handler(token, { scan_id }) {
     const scan = await api.get(token, `/scans/${encodeURIComponent(scan_id)}`);
-    const findings = scan.findings ?? [];
+    const findings = scan.data?.result?.findings ?? [];
 
     return findings.map((f) => ({
       title: f.title,
