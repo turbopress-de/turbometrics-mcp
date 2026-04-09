@@ -121,6 +121,45 @@ docker build -t wpperf-mcp . && docker restart wpperf-mcp
 Nur .env geändert:
 docker stop wpperf-mcp && docker rm wpperf-mcp && docker run -d --name wpperf-mcp --restart unless-stopped -p 3001:3001 --env-file .env wpperf-mcp
 
+## Claude Desktop Setup (Mac)
+
+Config: ~/Library/Application Support/Claude/claude_desktop_config.json
+
+```json
+{
+  "mcpServers": {
+    "turbometrics": {
+      "command": "/opt/homebrew/bin/npx",
+      "args": [
+        "mcp-remote",
+        "https://turbometrics.de/mcp",
+        "--header",
+        "Authorization: Bearer DEIN_API_TOKEN"
+      ]
+    }
+  }
+}
+```
+
+Voraussetzung: Node.js via Homebrew installiert (`brew install node`)
+npx-Pfad ggf. anpassen (`which npx`)
+
+## Bekannte Eigenheiten
+
+- `api.get()` gibt komplettes `response.json()` zurück inkl. `data`-Wrapper — in Tools immer `response.data` verwenden, nie `response` direkt
+- RUM-Site-Lookup und Domain-Lookup: API gibt nur Hostnamen zurück (z.B. `turbopress.de`), User gibt `domain_url` mit Protokoll ein — immer `new URL(domain_url).hostname` für den Vergleich verwenden
+- `GET /domains` und `GET /rum/sites` haben Pagination — immer alle Seiten laden via while-Loop
+- Claude Desktop unterstützt keinen `headers`-Parameter in `mcpServers` — `mcp-remote` als Wrapper nötig
+
+## Deployment (Kurzform)
+
+```bash
+git pull
+docker build -t wpperf-mcp .
+docker compose up -d
+docker logs -f wpperf-mcp
+```
+
 ## Nginx Konfiguration
 Datei: /etc/nginx/conf.d/mcp.conf (oder in bestehende turbometrics.de conf integrieren)
 Proxy /mcp → localhost:3001
