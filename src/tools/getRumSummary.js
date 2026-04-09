@@ -20,12 +20,13 @@ export const getRumSummary = {
     required: ['domain_url'],
   },
   async handler(token, { domain_url, period = '30d' }) {
+    const host = new URL(domain_url).hostname;
     let site = null;
     let page = 1;
     while (!site) {
       const sitesData = await api.get(token, `/rum/sites?page=${page}&limit=50`);
       const items = sitesData.data ?? [];
-      site = items.find((s) => s.domain === domain_url || s.url === domain_url) ?? null;
+      site = items.find((s) => s.domain === host) ?? null;
       if (page >= (sitesData.meta?.last_page ?? 1)) break;
       page++;
     }
