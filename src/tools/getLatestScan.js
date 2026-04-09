@@ -14,28 +14,34 @@ export const getLatestScan = {
     required: ['domain_url'],
   },
   async handler(token, { domain_url }) {
-    const data = await api.get(token, `/scans?domain=${encodeURIComponent(domain_url)}&status=finished&limit=1`);
-    const scans = Array.isArray(data) ? data : (data.data ?? []);
+    const listData = await api.get(token, `/scans?domain=${encodeURIComponent(domain_url)}&status=finished&limit=1`);
+    const scans = Array.isArray(listData) ? listData : (listData.data ?? []);
 
     if (scans.length === 0) {
-      throw new Error(`Kein Scan gefunden für Domain: ${domain_url}`);
+      throw new Error(`Kein fertiger Scan gefunden für Domain: ${domain_url}`);
     }
 
-    const scan = scans[0];
-    const findings = (scan.findings ?? []).filter(
+    const { public_id, result: listResult } = scans[0];
+
+    const detail = await api.get(token, `/scans/${encodeURIComponent(public_id)}`);
+    const result = detail.result ?? listResult ?? {};
+
+    const findings = (result.findings ?? []).filter(
       (f) => f.severity === 'bad' || f.severity === 'warning'
     );
 
     return {
-      id: scan.id,
-      score: scan.score,
-      scanned_at: scan.scanned_at,
+      public_id,
+      scores: result.scores ?? {},
+      metrics: {
+        ttfb: result.ttfb,
+        psi_score_mobile: result.psi_score_mobile,
+        psi_score_desktop: result.psi_score_desktop,
+        cwv_mobile: result.cwv_mobile,
+        cwv_desktop: result.cwv_desktop,
+      },
       findings,
-      top_brakes: scan.top_brakes,
-      cwv_metrics: scan.cwv_metrics,
-      ttfb: scan.ttfb,
-      psi_score_mobile: scan.psi_score_mobile,
-      psi_score_desktop: scan.psi_score_desktop,
+      summary_short: result.summary_short,
     };
   },
 };
