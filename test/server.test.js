@@ -12,7 +12,7 @@ jest.unstable_mockModule('../src/tools/listAlerts.js', () => ({ listAlerts: make
 jest.unstable_mockModule('../src/tools/getRumSummary.js', () => ({ getRumSummary: makeTool('get_rum_summary') }));
 jest.unstable_mockModule('../src/tools/compareDomains.js', () => ({ compareDomains: makeTool('compare_domains') }));
 jest.unstable_mockModule('../src/tools/triggerScan.js', () => ({ triggerScan: makeTool('trigger_scan') }));
-jest.unstable_mockModule('../src/tools/createAlert.js', () => ({ markAlertsRead: makeTool('mark_alerts_read') }));
+jest.unstable_mockModule('../src/tools/markAlertsRead.js', () => ({ markAlertsRead: makeTool('mark_alerts_read') }));
 
 const { createMcpTransport } = await import('../src/server.js');
 

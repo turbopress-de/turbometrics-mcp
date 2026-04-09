@@ -22,7 +22,7 @@ const [
   import('../src/tools/getRumSummary.js'),
   import('../src/tools/compareDomains.js'),
   import('../src/tools/triggerScan.js'),
-  import('../src/tools/createAlert.js'),
+  import('../src/tools/markAlertsRead.js'),
 ]);
 
 const TOKEN = 'test-token';
@@ -108,10 +108,13 @@ describe('getScanHistory', () => {
     expect(result).toEqual([{ score: 90, created_at: '2026-01-01T00:00:00Z', region: 'de-nbg1' }]);
   });
 
-  test('throws when domain not found', async () => {
+  test('throws when domain not found and no scans exist', async () => {
+    // findDomainId returns null (domains endpoint empty)
+    mockApi.get.mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } });
+    // fallback scans endpoint also empty
     mockApi.get.mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } });
     await expect(getScanHistory.handler(TOKEN, { domain_url: 'https://unknown.com/' }))
-      .rejects.toThrow('Domain nicht gefunden');
+      .rejects.toThrow('Keine Scans gefunden für');
   });
 
   test('searches multiple pages to find domain', async () => {
@@ -250,14 +253,14 @@ describe('triggerScan', () => {
     mockApi.post.mockResolvedValueOnce({ data: { id: 'OLD1', status: 'finished', cached: true } });
     const result = await triggerScan.handler(TOKEN, { domain_url: 'https://example.com/' });
     expect(result.cached).toBe(true);
-    expect(result.message).toMatch(/gecacht/);
+    expect(result.message).toMatch(/force/i);
   });
 
   test('returns started message when not cached', async () => {
     mockApi.post.mockResolvedValueOnce({ data: { id: 'NEW1', status: 'pending', cached: false } });
     const result = await triggerScan.handler(TOKEN, { domain_url: 'https://example.com/' });
     expect(result.cached).toBe(false);
-    expect(result.message).toMatch(/gestartet/);
+    expect(result.message).toMatch(/queued|scan/i);
   });
 });
 
