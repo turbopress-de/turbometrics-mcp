@@ -24,11 +24,10 @@ export const getLatestScan = {
     const { public_id, result: listResult } = scans[0];
 
     const detail = await api.get(token, `/scans/${encodeURIComponent(public_id)}`);
-    console.log('detail response:', JSON.stringify(detail, null, 2));
-    const result = detail.result ?? {};
+    const result = detail.data?.result ?? {};
 
     return {
-      public_id: detail.public_id ?? public_id,
+      public_id: detail.data?.public_id ?? public_id,
       scores: result.scores ?? {},
       metrics: {
         ttfb_ms: result.metrics?.ttfb_ms,
