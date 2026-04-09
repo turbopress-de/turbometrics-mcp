@@ -1,0 +1,24 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.turbopress-de/turbometrics-mcp",
+  "description": "Website performance monitoring: scans, Core Web Vitals, RUM data and alerts.",
+  "repository": {
+    "url": "https://github.com/turbopress-de/turbometrics-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://turbometrics.de/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token from turbometrics.de/profile/api",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
