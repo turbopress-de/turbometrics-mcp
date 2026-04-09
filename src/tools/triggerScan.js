@@ -20,7 +20,8 @@ export const triggerScan = {
     return {
       scan_id: result.id ?? result.scan_id,
       status: result.status,
-      message: result.message ?? 'Scan wurde gestartet.',
+      cached: result.cached ?? false,
+      message: result.cached ? 'Scan bereits vorhanden (gecacht) — kein neuer Scan ausgelöst.' : 'Scan wurde gestartet.',
     };
   },
 };
