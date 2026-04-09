@@ -20,12 +20,15 @@ export const getRumSummary = {
     required: ['domain_url'],
   },
   async handler(token, { domain_url, period = '30d' }) {
-    const sitesData = await api.get(token, '/rum/sites');
-    const sites = Array.isArray(sitesData) ? sitesData : (sitesData.data ?? []);
-
-    const site = sites.find(
-      (s) => s.domain === domain_url || s.url === domain_url
-    );
+    let site = null;
+    let page = 1;
+    while (!site) {
+      const sitesData = await api.get(token, `/rum/sites?page=${page}&limit=50`);
+      const items = sitesData.data ?? [];
+      site = items.find((s) => s.domain === domain_url || s.url === domain_url) ?? null;
+      if (page >= (sitesData.meta?.last_page ?? 1)) break;
+      page++;
+    }
     if (!site) {
       throw new Error(`RUM-Site nicht gefunden für Domain: ${domain_url}`);
     }

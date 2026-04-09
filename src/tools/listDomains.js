@@ -9,8 +9,15 @@ export const listDomains = {
     required: [],
   },
   async handler(token, _args) {
-    const data = await api.get(token, '/domains');
-    const domains = Array.isArray(data) ? data : (data.data ?? []);
+    const domains = [];
+    let page = 1;
+    while (true) {
+      const data = await api.get(token, `/domains?page=${page}&limit=50`);
+      const items = data.data ?? [];
+      domains.push(...items);
+      if (page >= (data.meta?.last_page ?? 1)) break;
+      page++;
+    }
 
     return domains.map((d) => ({
       host: d.host,
