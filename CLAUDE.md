@@ -42,15 +42,18 @@ PORT=3001
 ## Tools
 | Tool | Typ | Beschreibung |
 |------|-----|--------------|
-| list_domains | read | Alle Domains mit Score und Alert-Status |
+| list_domains | read | Alle überwachten Domains |
 | get_latest_scan | read | Neuester Scan einer Domain |
-| get_scan_history | read | Score-Verlauf (bis 90 Tage) |
+| get_scan_history | read | Score-Verlauf (überwachte + neue Domains) |
 | get_findings | read | Detaillierte Findings eines Scans |
 | list_alerts | read | Offene/resolved Alerts |
-| get_rum_summary | read | RUM-Daten einer Domain |
+| get_rum_summary | read | RUM Core Web Vitals Zusammenfassung |
+| get_rum_metric_history | read | Tagesverlauf einer RUM-Metrik (LCP/CLS/INP/FCP/TTFB) |
+| get_rum_pages | read | Langsamste Seiten je RUM-Metrik |
 | compare_domains | read | Zwei Domains direkt vergleichen |
-| trigger_scan | write | Sofortigen Scan starten |
-| create_alert | write | Alert-Regel anlegen |
+| trigger_scan | write | Sofortigen Scan starten (neue oder bestehende Domains, mit region/force/auth) |
+| mark_alerts_read | write | Alerts als gelesen markieren |
+| get_account_info | read | Account-Info: Plan, API-Limits, RUM-Status |
 
 ## Authentifizierung
 Jeder MCP-Request muss einen Authorization: Bearer {api_token} Header mitschicken.

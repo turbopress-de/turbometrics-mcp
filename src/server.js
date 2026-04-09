@@ -8,9 +8,12 @@ import { getScanHistory } from './tools/getScanHistory.js';
 import { getFindings } from './tools/getFindings.js';
 import { listAlerts } from './tools/listAlerts.js';
 import { getRumSummary } from './tools/getRumSummary.js';
+import { getRumMetricHistory } from './tools/getRumMetricHistory.js';
+import { getRumPages } from './tools/getRumPages.js';
 import { compareDomains } from './tools/compareDomains.js';
 import { triggerScan } from './tools/triggerScan.js';
-import { markAlertsRead } from './tools/createAlert.js';
+import { markAlertsRead } from './tools/markAlertsRead.js';
+import { getAccountInfo } from './tools/getAccountInfo.js';
 
 const TOOLS = [
   listDomains,
@@ -19,9 +22,12 @@ const TOOLS = [
   getFindings,
   listAlerts,
   getRumSummary,
+  getRumMetricHistory,
+  getRumPages,
   compareDomains,
   triggerScan,
   markAlertsRead,
+  getAccountInfo,
 ];
 
 function extractToken(req) {

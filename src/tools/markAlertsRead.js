@@ -2,14 +2,14 @@ import { api } from '../api.js';
 
 export const markAlertsRead = {
   name: 'mark_alerts_read',
-  description: 'Markiert einen oder mehrere Alerts als gelesen.',
+  description: 'Marks one or more alerts as read.',
   inputSchema: {
     type: 'object',
     properties: {
       alert_ids: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Liste der Alert-IDs, die als gelesen markiert werden sollen',
+        description: 'List of alert IDs to mark as read',
       },
     },
     required: ['alert_ids'],
@@ -19,6 +19,7 @@ export const markAlertsRead = {
     const result = response.data ?? response;
     return {
       message: result.message ?? 'Alerts wurden als gelesen markiert.',
+      marked_read: result.marked_read ?? alert_ids.length,
     };
   },
 };
