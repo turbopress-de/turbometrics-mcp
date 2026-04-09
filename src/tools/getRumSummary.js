@@ -35,15 +35,12 @@ export const getRumSummary = {
     }
 
     const summary = await api.get(token, `/rum/sites/${site.id}/summary?period=${encodeURIComponent(period)}`);
-    const data = summary.data ?? summary;
 
     return {
-      lcp_p75: data.lcp_p75,
-      cls_p75: data.cls_p75,
-      inp_p75: data.inp_p75,
-      pageviews: data.pageviews,
-      top_browsers: data.top_browsers,
-      top_referrers: data.top_referrers,
+      domain: summary.data.domain,
+      period: summary.data.period,
+      cwv_pass: summary.data.cwv_pass,
+      metrics: summary.data.metrics,
     };
   },
 };
