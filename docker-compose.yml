@@ -1,8 +1,18 @@
 services:
   mcp:
     image: wpperf-mcp
+    container_name: wpperf-mcp
     restart: unless-stopped
+    init: true
     ports:
       - "3001:3001"
     env_file:
-      - .env
+      - ./.env
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+networks:
+  default:
+    enable_ipv6: true
