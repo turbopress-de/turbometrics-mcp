@@ -35,7 +35,6 @@ export const getRumSummary = {
     }
 
     const summary = await api.get(token, `/rum/sites/${site.id}/summary?period=${encodeURIComponent(period)}`);
-
     return {
       domain: summary.data.domain,
       period: summary.data.period,
