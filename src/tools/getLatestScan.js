@@ -24,6 +24,7 @@ export const getLatestScan = {
     const { public_id, result: listResult } = scans[0];
 
     const detail = await api.get(token, `/scans/${encodeURIComponent(public_id)}`);
+    console.log('detail response:', JSON.stringify(detail, null, 2));
     const result = detail.result ?? {};
 
     return {
