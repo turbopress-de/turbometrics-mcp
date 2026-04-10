@@ -14,6 +14,8 @@ import { compareDomains } from './tools/compareDomains.js';
 import { triggerScan } from './tools/triggerScan.js';
 import { markAlertsRead } from './tools/markAlertsRead.js';
 import { getAccountInfo } from './tools/getAccountInfo.js';
+import { listScans } from './tools/listScans.js';
+import { getAlert } from './tools/getAlert.js';
 
 const TOOLS = [
   listDomains,
@@ -28,6 +30,8 @@ const TOOLS = [
   triggerScan,
   markAlertsRead,
   getAccountInfo,
+  listScans,
+  getAlert,
 ];
 
 function extractToken(req) {

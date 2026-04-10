@@ -13,6 +13,8 @@ const [
   { compareDomains },
   { triggerScan },
   { markAlertsRead },
+  { listScans },
+  { getAlert },
 ] = await Promise.all([
   import('../src/tools/listDomains.js'),
   import('../src/tools/getLatestScan.js'),
@@ -23,6 +25,8 @@ const [
   import('../src/tools/compareDomains.js'),
   import('../src/tools/triggerScan.js'),
   import('../src/tools/markAlertsRead.js'),
+  import('../src/tools/listScans.js'),
+  import('../src/tools/getAlert.js'),
 ]);
 
 const TOKEN = 'test-token';
@@ -279,5 +283,62 @@ describe('markAlertsRead', () => {
     mockApi.post.mockResolvedValueOnce({ data: {} });
     const result = await markAlertsRead.handler(TOKEN, { alert_ids: ['1'] });
     expect(result.message).toBeTruthy();
+  });
+});
+
+// ─── listScans ───────────────────────────────────────────────────────────────
+describe('listScans', () => {
+  beforeEach(reset);
+
+  test('calls /scans with default params', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: [], meta: { total: 0, current_page: 1, last_page: 1 } });
+    await listScans.handler(TOKEN, {});
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, expect.stringContaining('/scans?'));
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, expect.stringContaining('limit=20'));
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, expect.stringContaining('page=1'));
+  });
+
+  test('passes domain and status filters', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: [], meta: {} });
+    await listScans.handler(TOKEN, { domain: 'https://example.com', status: 'finished' });
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, expect.stringContaining('status=finished'));
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, expect.stringContaining('domain='));
+  });
+
+  test('caps limit at 50', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: [], meta: {} });
+    await listScans.handler(TOKEN, { limit: 100 });
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, expect.stringContaining('limit=50'));
+  });
+
+  test('maps scan fields and returns meta', async () => {
+    mockApi.get.mockResolvedValueOnce({
+      data: [{ public_id: 'S1', status: 'finished', submitted_url: 'https://example.com', region: 'de-nbg1', requested_at: '2026-01-01T00:00:00Z', finished_at: '2026-01-01T00:01:00Z', scores: { overall: 91 } }],
+      meta: { total: 1, current_page: 1, last_page: 1 },
+    });
+    const result = await listScans.handler(TOKEN, {});
+    expect(result.scans).toHaveLength(1);
+    expect(result.scans[0].public_id).toBe('S1');
+    expect(result.scans[0].scores.overall).toBe(91);
+    expect(result.meta.total).toBe(1);
+  });
+});
+
+// ─── getAlert ────────────────────────────────────────────────────────────────
+describe('getAlert', () => {
+  beforeEach(reset);
+
+  test('calls /alerts/{id} and returns data', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: { id: 7, domain: 'example.com', metric: 'score' } });
+    const result = await getAlert.handler(TOKEN, { alert_id: '7' });
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts/7');
+    expect(result.id).toBe(7);
+    expect(result.domain).toBe('example.com');
+  });
+
+  test('falls back to raw response if no data wrapper', async () => {
+    mockApi.get.mockResolvedValueOnce({ id: 99, metric: 'lcp' });
+    const result = await getAlert.handler(TOKEN, { alert_id: '99' });
+    expect(result.id).toBe(99);
   });
 });
