@@ -17,17 +17,20 @@ export const getAccountInfo = {
       name: user.name,
       email: user.email,
       plan: {
-        key: user.plan_key,
-        label: user.plan_label,
+        key: user.plan?.key,
+        label: user.plan?.label,
+        api_daily_limit: user.plan?.api_daily_limit,
       },
       api_usage: {
-        used_today: user.api_requests_today,
-        daily_limit: user.api_daily_limit,
+        used_today: user.api_usage?.used_today,
+        limit_today: user.api_usage?.limit_today,
+        reset_at: user.api_usage?.reset_at,
       },
       rum: {
-        enabled: user.rum_enabled ?? false,
-        sites_count: user.rum_sites_count ?? 0,
-        monthly_pageviews_limit: user.rum_monthly_pageviews ?? 0,
+        enabled: user.rum?.enabled ?? false,
+        sites_count: user.rum?.sites_count ?? 0,
+        monthly_limit: user.rum?.monthly_limit ?? 0,
+        pageviews_this_month: user.rum?.pageviews_this_month ?? 0,
       },
     };
   },

@@ -15,6 +15,7 @@ const [
   { markAlertsRead },
   { listScans },
   { getAlert },
+  { getAccountInfo },
 ] = await Promise.all([
   import('../src/tools/listDomains.js'),
   import('../src/tools/getLatestScan.js'),
@@ -27,6 +28,7 @@ const [
   import('../src/tools/markAlertsRead.js'),
   import('../src/tools/listScans.js'),
   import('../src/tools/getAlert.js'),
+  import('../src/tools/getAccountInfo.js'),
 ]);
 
 const TOKEN = 'test-token';
@@ -340,5 +342,41 @@ describe('getAlert', () => {
     mockApi.get.mockResolvedValueOnce({ id: 99, metric: 'lcp' });
     const result = await getAlert.handler(TOKEN, { alert_id: '99' });
     expect(result.id).toBe(99);
+  });
+});
+
+// ─── getAccountInfo ──────────────────────────────────────────────────────────
+describe('getAccountInfo', () => {
+  beforeEach(reset);
+
+  test('maps nested plan and api_usage fields from API response', async () => {
+    mockApi.get.mockResolvedValueOnce({
+      data: {
+        id: 1,
+        name: 'Test User',
+        email: 'test@example.com',
+        plan: { key: 'pro', label: 'Pro', api_daily_limit: 5000 },
+        api_usage: { used_today: 42, limit_today: 5000, reset_at: '2026-01-01T23:59:59+00:00' },
+        rum: { enabled: true, sites_count: 2, monthly_limit: 100000, pageviews_this_month: 8000 },
+      },
+    });
+    const result = await getAccountInfo.handler(TOKEN, {});
+    expect(result.plan.key).toBe('pro');
+    expect(result.plan.api_daily_limit).toBe(5000);
+    expect(result.api_usage.used_today).toBe(42);
+    expect(result.api_usage.limit_today).toBe(5000);
+    expect(result.api_usage.reset_at).toBe('2026-01-01T23:59:59+00:00');
+    expect(result.rum.enabled).toBe(true);
+    expect(result.rum.sites_count).toBe(2);
+    expect(result.rum.monthly_limit).toBe(100000);
+  });
+
+  test('returns safe defaults when plan/api_usage/rum are absent', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: { id: 2, name: 'X', email: 'x@y.com' } });
+    const result = await getAccountInfo.handler(TOKEN, {});
+    expect(result.plan.key).toBeUndefined();
+    expect(result.api_usage.used_today).toBeUndefined();
+    expect(result.rum.enabled).toBe(false);
+    expect(result.rum.sites_count).toBe(0);
   });
 });
