@@ -22,6 +22,8 @@ Ask your AI assistant questions like:
 
 **Alerts & Account**
 - "Show all open alerts"
+- "List my recent scans filtered by status"
+- "Show details for alert #123"
 - "Mark all alerts as read"
 - "What plan am I on and how many API requests do I have left today?"
 
@@ -44,6 +46,8 @@ Ask your AI assistant questions like:
 | `get_rum_pages` | Slowest pages ranked by metric |
 | `compare_domains` | Compare two domains side by side |
 | `trigger_scan` | Start a scan for any URL — new or monitored; supports region, force, and auth |
+| `list_scans` | List scans — filterable by domain, status and page |
+| `get_alert` | Get details for a specific alert |
 | `mark_alerts_read` | Mark alerts as read |
 | `get_account_info` | Account details: plan, API limits, RUM status |
 
