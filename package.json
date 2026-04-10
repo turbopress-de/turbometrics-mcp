@@ -1,6 +1,6 @@
 {
   "name": "wpperf-mcp",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "MCP Server für turbometrics.de",
   "type": "module",
   "main": "src/index.js",
