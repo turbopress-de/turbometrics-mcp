@@ -313,7 +313,7 @@ describe('listScans', () => {
 
   test('maps scan fields and returns meta', async () => {
     mockApi.get.mockResolvedValueOnce({
-      data: [{ public_id: 'S1', status: 'finished', submitted_url: 'https://example.com', region: 'de-nbg1', requested_at: '2026-01-01T00:00:00Z', finished_at: '2026-01-01T00:01:00Z', scores: { overall: 91 } }],
+      data: [{ public_id: 'S1', status: 'finished', submitted_url: 'https://example.com', region: 'de-nbg1', requested_at: '2026-01-01T00:00:00Z', finished_at: '2026-01-01T00:01:00Z', result: { scores: { overall: 91 } } }],
       meta: { total: 1, current_page: 1, last_page: 1 },
     });
     const result = await listScans.handler(TOKEN, {});

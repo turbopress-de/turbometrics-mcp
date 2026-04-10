@@ -47,7 +47,7 @@ export const listScans = {
         region: s.region,
         requested_at: s.requested_at,
         finished_at: s.finished_at,
-        scores: s.scores ?? null,
+        scores: s.result?.scores ?? null,
       })),
       meta: {
         total: meta.total ?? null,
