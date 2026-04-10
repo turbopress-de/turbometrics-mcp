@@ -2,10 +2,10 @@ import { api } from '../api.js';
 
 async function findDomainId(token, domain_url) {
   let page = 1;
+  const inputHost = new URL(domain_url).hostname;
   while (true) {
     const data = await api.get(token, `/domains?page=${page}&limit=50`);
     const items = data.data ?? [];
-    const inputHost = new URL(domain_url).hostname;
     const found = items.find((d) => new URL(d.url).hostname === inputHost);
     if (found) return found.id;
     if (page >= (data.meta?.last_page ?? 1)) break;
