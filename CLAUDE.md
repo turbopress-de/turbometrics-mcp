@@ -1,9 +1,9 @@
-# wpperf-mcp — MCP Server für turbometrics.de
+# wpperf-mcp — MCP Server für turbometrics.io
 
 ## Überblick
-Node.js MCP-Server (Model Context Protocol) für turbometrics.de.
+Node.js MCP-Server (Model Context Protocol) für turbometrics.io.
 Stellt KI-Tools (Claude, ChatGPT etc.) bereit um turbometrics-Daten abzufragen und Aktionen auszuführen.
-Läuft auf Port 3001, erreichbar über https://turbometrics.de/mcp
+Läuft auf Port 3001, erreichbar über https://turbometrics.io/mcp
 
 ## Tech Stack
 - Node.js 20 (Alpine Docker)
@@ -36,7 +36,7 @@ node src/index.js
 npx @modelcontextprotocol/inspector node src/index.js
 
 ## Environment Variables
-API_BASE_URL=https://turbometrics.de/api/v1
+API_BASE_URL=https://turbometrics.io/api/v1
 PORT=3001
 
 ## Tools
@@ -80,7 +80,7 @@ test/
 
 ### Server: Hetzner DE (gleicher Server wie Laravel)
 Pfad: /opt/wpperf-mcp
-Port: 3001 (intern), erreichbar über https://turbometrics.de/mcp (Nginx Proxy)
+Port: 3001 (intern), erreichbar über https://turbometrics.io/mcp (Nginx Proxy)
 
 ### Docker
 
@@ -124,6 +124,46 @@ docker build -t wpperf-mcp . && docker restart wpperf-mcp
 Nur .env geändert:
 docker stop wpperf-mcp && docker rm wpperf-mcp && docker run -d --name wpperf-mcp --restart unless-stopped -p 3001:3001 --env-file .env wpperf-mcp
 
+Achtung: docker-compose.yml hat kein `build:`, nur `image:`. `docker compose up -d --build`
+baut daher **nicht** neu, sondern meldet nur "Running". Immer erst `docker build -t wpperf-mcp .`,
+dann `docker compose up -d --force-recreate`.
+
+Ebenso: `API_BASE_URL` in der `.env` auf dem Server überschreibt den Default im Code.
+Bei einem Domain- oder Endpunktwechsel beide Stellen anfassen.
+
+## MCP Registry
+
+Der Server ist in der offiziellen Registry veröffentlicht als
+`io.github.turbopress-de/turbometrics-mcp`. Die Namespace-Eigentümerschaft wird über
+das GitHub-Repo `github.com/turbopress-de/turbometrics-mcp` geprüft — Änderungen an
+`server.json` also **vor** dem Publish auf das `github`-Remote pushen, nicht nur auf
+`origin`.
+
+Ablauf für eine Aktualisierung:
+
+1. Version anheben — in `server.json` **und** `package.json`. Die Registry versioniert
+   unveränderlich und lehnt ein erneutes Publish derselben Version ab. Reine
+   URL- oder Metadatenänderungen sind ein Patch-Sprung.
+2. `git push origin master && git push github master`
+3. `mcp-publisher login github` — GitHub-Device-Flow, zeigt Code und URL an und muss
+   im Browser bestätigt werden. Der abgelegte Registry-Token läuft nach etwa einer
+   Stunde ab, für ein Publish Wochen später ist der Login also immer wieder fällig.
+4. `mcp-publisher publish`
+
+Prüfen, was tatsächlich veröffentlicht ist:
+
+    curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=turbometrics" | jq
+
+Maßgeblich ist der Eintrag mit `isLatest: true`. Ältere Versionen bleiben mit ihrer
+alten `remote.url` bestehen und lassen sich nicht zurückziehen — Clients auf einer
+alten Version rufen also weiter die dort hinterlegte Adresse auf. Beim Domainwechsel
+am 01.08.2026 war das der Grund, die alte Domain `/mcp` weiter ausliefern zu lassen,
+statt sie umzuleiten: Bei einem Cross-Origin-Redirect verwerfen die meisten
+HTTP-Clients den `Authorization`-Header, der Bearer-Token käme also nie an.
+
+Die Token-Dateien `.mcpregistry_github_token` und `.mcpregistry_registry_token` landen
+im Repo-Verzeichnis und sind in der `.gitignore` — nie einchecken.
+
 ## Claude Desktop Setup (Mac)
 
 Config: ~/Library/Application Support/Claude/claude_desktop_config.json
@@ -135,7 +175,7 @@ Config: ~/Library/Application Support/Claude/claude_desktop_config.json
       "command": "/opt/homebrew/bin/npx",
       "args": [
         "mcp-remote",
-        "https://turbometrics.de/mcp",
+        "https://turbometrics.io/mcp",
         "--header",
         "Authorization: Bearer DEIN_API_TOKEN"
       ]
@@ -164,7 +204,7 @@ docker logs -f wpperf-mcp
 ```
 
 ## Nginx Konfiguration
-Datei: /etc/nginx/conf.d/mcp.conf (oder in bestehende turbometrics.de conf integrieren)
+Datei: /etc/nginx/conf.d/mcp.conf (oder in bestehende turbometrics.io conf integrieren)
 Proxy /mcp → localhost:3001
 SSE erfordert: proxy_buffering off + proxy_read_timeout 86400
 
