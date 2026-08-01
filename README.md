@@ -1,6 +1,6 @@
 # turbometrics MCP Server
 
-Connect Claude and other AI tools directly to your [turbometrics.de](https://turbometrics.de) account.
+Connect Claude and other AI tools directly to your [turbometrics.io](https://turbometrics.io) account.
 
 ## What you can do
 
@@ -8,9 +8,9 @@ Ask your AI assistant questions like:
 
 **Scans & Performance**
 - "What's the performance score of turbopress.de?"
-- "Which findings does turbometrics.de have?"
+- "Which findings does turbometrics.io have?"
 - "Has my score improved this week?"
-- "Compare turbopress.de with turbometrics.de"
+- "Compare turbopress.de with turbometrics.io"
 - "Scan https://new-client-site.com and show me the results" *(any URL, even unmonitored ones)*
 - "Start a scan for example.com in the EU region"
 
@@ -29,8 +29,8 @@ Ask your AI assistant questions like:
 
 ## Requirements
 
-- A turbometrics.de account (Starter plan or higher)
-- An API token from [Profile → API](https://turbometrics.de/profile/api)
+- A turbometrics.io account (Starter plan or higher)
+- An API token from [Profile → API](https://turbometrics.io/profile/api)
 
 ## Available Tools
 
@@ -54,14 +54,14 @@ Ask your AI assistant questions like:
 ## Authentication
 
 Every request requires a Bearer token passed via the `Authorization` header.
-Get your token at [turbometrics.de/profile/api](https://turbometrics.de/profile/api).
+Get your token at [turbometrics.io/profile/api](https://turbometrics.io/profile/api).
 
 ## Setup
 
 ### Claude Desktop (Mac)
 
 1. Install Node.js: `brew install node`
-2. Get your API token from [Profile → API](https://turbometrics.de/profile/api)
+2. Get your API token from [Profile → API](https://turbometrics.io/profile/api)
 3. Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
@@ -71,7 +71,7 @@ Get your token at [turbometrics.de/profile/api](https://turbometrics.de/profile/
       "command": "/opt/homebrew/bin/npx",
       "args": [
         "mcp-remote",
-        "https://turbometrics.de/mcp",
+        "https://turbometrics.io/mcp",
         "--header",
         "Authorization: Bearer YOUR_API_TOKEN"
       ]
@@ -90,7 +90,7 @@ Same as Mac — find your `npx` path with `where npx` in CMD.
 
 | Setting | Value |
 |---------|-------|
-| Server URL | `https://turbometrics.de/mcp` |
+| Server URL | `https://turbometrics.io/mcp` |
 | Transport | Streamable HTTP |
 | Auth | `Authorization: Bearer YOUR_API_TOKEN` |
 

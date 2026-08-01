@@ -3,9 +3,9 @@
 ## Server Details
 
 - **Name:** turbometrics
-- **URL:** https://turbometrics.de/mcp
+- **URL:** https://turbometrics.io/mcp
 - **Transport:** Streamable HTTP / SSE
-- **Auth:** Bearer Token (API key from turbometrics.de/profile/api)
+- **Auth:** Bearer Token (API key from turbometrics.io/profile/api)
 - **Source:** https://github.com/turbopress-de/turbometrics-mcp
 
 ## Description
@@ -36,7 +36,7 @@ and real user monitoring metrics.
 - "Which of my domains has the worst performance score?"
 - "Show me all warnings for turbopress.de"
 - "How has the score of example.com changed over the last 30 days?"
-- "Compare turbopress.de with turbometrics.de"
+- "Compare turbopress.de with turbometrics.io"
 - "Scan https://new-client-site.com and show me the findings"
 - "Show RUM Core Web Vitals for turbopress.de"
 - "Which pages on turbopress.de have the worst LCP?"
@@ -44,8 +44,8 @@ and real user monitoring metrics.
 
 ## Requirements
 
-- turbometrics.de account (Starter plan or higher)
-- API token from turbometrics.de/profile/api
+- turbometrics.io account (Starter plan or higher)
+- API token from turbometrics.io/profile/api
 
 ## Category
 
