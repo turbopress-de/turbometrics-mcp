@@ -10,11 +10,11 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://turbometrics.de/mcp",
+      "url": "https://turbometrics.io/mcp",
       "headers": [
         {
           "name": "Authorization",
-          "description": "Bearer token from turbometrics.de/profile/api",
+          "description": "Bearer token from turbometrics.io/profile/api",
           "isRequired": true,
           "isSecret": true
         }

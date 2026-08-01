@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const BASE_URL = process.env.API_BASE_URL || 'https://turbometrics.de/api/v1';
+const BASE_URL = process.env.API_BASE_URL || 'https://turbometrics.io/api/v1';
 
 export async function apiRequest(token, method, path, body = null) {
   const url = `${BASE_URL}${path}`;
