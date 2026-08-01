@@ -5,7 +5,10 @@ services:
     restart: unless-stopped
     init: true
     ports:
-      - "3001:3001"
+      # Nur an localhost binden — erreichbar ausschliesslich ueber den nginx-Proxy
+      # unter /mcp. Ohne diese Bindung haengt der Server am oeffentlichen Interface
+      # und ist an Cloudflare, TLS und Rate Limit vorbei ansprechbar.
+      - "127.0.0.1:3001:3001"
     env_file:
       - ./.env
     security_opt:

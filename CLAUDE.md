@@ -91,7 +91,7 @@ docker build -t wpperf-mcp .
 docker run -d \
   --name wpperf-mcp \
   --restart unless-stopped \
-  -p 3001:3001 \
+  -p 127.0.0.1:3001:3001 \
   --env-file .env \
   wpperf-mcp
 
@@ -113,7 +113,7 @@ docker rm wpperf-mcp
 docker run -d \
   --name wpperf-mcp \
   --restart unless-stopped \
-  -p 3001:3001 \
+  -p 127.0.0.1:3001:3001 \
   --env-file .env \
   wpperf-mcp
 
@@ -122,7 +122,7 @@ Nur bei Änderungen an src/ oder package.json:
 docker build -t wpperf-mcp . && docker restart wpperf-mcp
 
 Nur .env geändert:
-docker stop wpperf-mcp && docker rm wpperf-mcp && docker run -d --name wpperf-mcp --restart unless-stopped -p 3001:3001 --env-file .env wpperf-mcp
+docker stop wpperf-mcp && docker rm wpperf-mcp && docker run -d --name wpperf-mcp --restart unless-stopped -p 127.0.0.1:3001:3001 --env-file .env wpperf-mcp
 
 Achtung: docker-compose.yml hat kein `build:`, nur `image:`. `docker compose up -d --build`
 baut daher **nicht** neu, sondern meldet nur "Running". Immer erst `docker build -t wpperf-mcp .`,
