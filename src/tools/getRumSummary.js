@@ -2,18 +2,18 @@ import { api } from '../api.js';
 
 export const getRumSummary = {
   name: 'get_rum_summary',
-  description: 'Gibt Real User Monitoring (RUM) Daten einer Domain zurück: Core Web Vitals, Pageviews, Browser- und Referrer-Verteilung.',
+  description: 'Returns Real User Monitoring (RUM) data for a domain: Core Web Vitals, pageviews, browser and referrer distribution.',
   inputSchema: {
     type: 'object',
     properties: {
       domain_url: {
         type: 'string',
-        description: 'URL der Domain (z.B. https://example.com)',
+        description: 'URL of the domain (e.g. https://example.com)',
       },
       period: {
         type: 'string',
         enum: ['24h', '7d', '30d'],
-        description: "Zeitraum: '24h', '7d' oder '30d' (Standard: '30d')",
+        description: "Time period: '24h', '7d' or '30d' (default: '30d')",
         default: '30d',
       },
     },

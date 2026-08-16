@@ -2,7 +2,7 @@ import { api } from '../api.js';
 
 export const listDomains = {
   name: 'list_domains',
-  description: 'Listet alle überwachten Domains mit Status und letztem Scan-Zeitpunkt auf.',
+  description: 'Lists all monitored domains with their status and the time of the last scan.',
   inputSchema: {
     type: 'object',
     properties: {},

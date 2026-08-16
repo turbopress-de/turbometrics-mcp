@@ -2,13 +2,13 @@ import { api } from '../api.js';
 
 export const getFindings = {
   name: 'get_findings',
-  description: 'Gibt alle detaillierten Findings eines Scans zurück, inklusive Empfehlungen.',
+  description: 'Returns all detailed findings of a scan, including recommendations.',
   inputSchema: {
     type: 'object',
     properties: {
       scan_id: {
         type: 'string',
-        description: 'ID des Scans',
+        description: 'ID of the scan',
       },
     },
     required: ['scan_id'],

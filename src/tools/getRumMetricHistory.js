@@ -8,7 +8,7 @@ export const getRumMetricHistory = {
     properties: {
       domain_url: {
         type: 'string',
-        description: 'URL der Domain (z.B. https://example.com)',
+        description: 'URL of the domain (e.g. https://example.com)',
       },
       metric: {
         type: 'string',

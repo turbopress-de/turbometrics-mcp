@@ -2,13 +2,13 @@ import { api } from '../api.js';
 
 export const getAlert = {
   name: 'get_alert',
-  description: 'Gibt Details zu einem einzelnen Alert zurück.',
+  description: 'Returns details of a single alert.',
   inputSchema: {
     type: 'object',
     properties: {
       alert_id: {
         type: 'string',
-        description: 'ID des Alerts',
+        description: 'ID of the alert',
       },
     },
     required: ['alert_id'],

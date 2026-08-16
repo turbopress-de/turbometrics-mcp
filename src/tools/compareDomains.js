@@ -12,17 +12,17 @@ async function getLatestScanDetail(token, domain_url) {
 
 export const compareDomains = {
   name: 'compare_domains',
-  description: 'Vergleicht zwei Domains direkt anhand ihrer neuesten Scan-Daten (Score, TTFB, CWV, Findings).',
+  description: 'Compares two domains directly using their latest scan data (score, TTFB, CWV, findings).',
   inputSchema: {
     type: 'object',
     properties: {
       domain_url_a: {
         type: 'string',
-        description: 'URL der ersten Domain',
+        description: 'URL of the first domain',
       },
       domain_url_b: {
         type: 'string',
-        description: 'URL der zweiten Domain',
+        description: 'URL of the second domain',
       },
     },
     required: ['domain_url_a', 'domain_url_b'],

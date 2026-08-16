@@ -2,13 +2,13 @@ import { api } from '../api.js';
 
 export const getLatestScan = {
   name: 'get_latest_scan',
-  description: 'Gibt den neuesten Scan einer Domain zurück, inklusive Score, Findings und Core Web Vitals.',
+  description: 'Returns the latest scan of a domain, including score, findings and Core Web Vitals.',
   inputSchema: {
     type: 'object',
     properties: {
       domain_url: {
         type: 'string',
-        description: 'URL der Domain (z.B. https://example.com)',
+        description: 'URL of the domain (e.g. https://example.com)',
       },
     },
     required: ['domain_url'],

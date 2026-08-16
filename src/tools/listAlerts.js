@@ -2,14 +2,14 @@ import { api } from '../api.js';
 
 export const listAlerts = {
   name: 'list_alerts',
-  description: 'Listet Alerts auf — offene, gelöste oder alle.',
+  description: 'Lists alerts — open, resolved or all.',
   inputSchema: {
     type: 'object',
     properties: {
       status: {
         type: 'string',
         enum: ['open', 'resolved', 'all'],
-        description: "Filter nach Status: 'open', 'resolved' oder 'all' (Standard: 'open')",
+        description: "Filter by status: 'open', 'resolved' or 'all' (default: 'open')",
         default: 'open',
       },
     },

@@ -2,27 +2,27 @@ import { api } from '../api.js';
 
 export const listScans = {
   name: 'list_scans',
-  description: 'Listet Scans auf — filterbar nach Domain, Status und Seite.',
+  description: 'Lists scans — filterable by domain, status and page.',
   inputSchema: {
     type: 'object',
     properties: {
       domain: {
         type: 'string',
-        description: 'URL-Filter: nur Scans dieser Domain (z.B. https://example.com)',
+        description: 'URL filter: only scans of this domain (e.g. https://example.com)',
       },
       status: {
         type: 'string',
         enum: ['queued', 'running', 'finished', 'failed'],
-        description: 'Filter nach Scan-Status',
+        description: 'Filter by scan status',
       },
       limit: {
         type: 'number',
-        description: 'Anzahl Ergebnisse (Standard: 20, max: 50)',
+        description: 'Number of results (default: 20, max: 50)',
         default: 20,
       },
       page: {
         type: 'number',
-        description: 'Seite (Standard: 1)',
+        description: 'Page (default: 1)',
         default: 1,
       },
     },

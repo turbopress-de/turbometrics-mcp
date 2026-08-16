@@ -17,7 +17,12 @@ import { getAccountInfo } from './tools/getAccountInfo.js';
 import { listScans } from './tools/listScans.js';
 import { getAlert } from './tools/getAlert.js';
 
-const TOOLS = [
+// Ausgefuehrt statt nur intern gehalten: der Sprachwaechter in
+// test/toolDescriptionsEnglish.test.js prueft genau die Liste, die hier
+// registriert wird. Wuerde er die Werkzeuge einzeln importieren, bliebe ein
+// neu dazugekommenes unbemerkt — der haeufigste Weg, auf dem so eine
+// Zusicherung verrottet.
+export const TOOLS = [
   listDomains,
   getLatestScan,
   getScanHistory,
