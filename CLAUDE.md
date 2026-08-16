@@ -119,7 +119,16 @@ docker run -d \
 
 ### Nach Code-Änderungen
 Nur bei Änderungen an src/ oder package.json:
-docker build -t wpperf-mcp . && docker restart wpperf-mcp
+docker build -t wpperf-mcp . && docker compose up -d --force-recreate
+
+**Nicht `docker restart`.** Der Befehl startet den *bestehenden* Container neu,
+und der hängt an der Abbild-ID, mit der er erzeugt wurde — ein frisch gebautes
+Abbild wird ignoriert. Der Bau läuft durch, der Neustart läuft durch, alles
+sieht richtig aus, und der Server liefert weiter den alten Code. Nachgewiesen
+am 2026-08-16 beim Ausrollen der englischen Werkzeugbeschreibungen. Kontrolle
+im Zweifel: `docker inspect wpperf-mcp --format '{{.Image}}'` gegen
+`docker images --no-trunc --format '{{.ID}}' wpperf-mcp` — die beiden müssen
+gleich sein.
 
 Nur .env geändert:
 docker stop wpperf-mcp && docker rm wpperf-mcp && docker run -d --name wpperf-mcp --restart unless-stopped -p 127.0.0.1:3001:3001 --env-file .env wpperf-mcp
