@@ -28,6 +28,9 @@ export const getLatestScan = {
 
     return {
       public_id: detail.data?.public_id ?? public_id,
+      // Link auf den Report in der Oberflaeche. Kommt aus der API, damit das
+      // URL-Schema nicht hier nachgebaut werden muss.
+      report_url: detail.data?.report_url ?? null,
       scores: result.scores ?? {},
       metrics: {
         ttfb_ms: result.metrics?.ttfb_ms,

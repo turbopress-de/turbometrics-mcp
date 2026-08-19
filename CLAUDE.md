@@ -201,6 +201,10 @@ npx-Pfad ggf. anpassen (`which npx`)
 - `api.get()` gibt komplettes `response.json()` zurück inkl. `data`-Wrapper — in Tools immer `response.data` verwenden, nie `response` direkt
 - RUM-Site-Lookup und Domain-Lookup: API gibt nur Hostnamen zurück (z.B. `turbopress.de`), User gibt `domain_url` mit Protokoll ein — immer `new URL(domain_url).hostname` für den Vergleich verwenden
 - `GET /domains` und `GET /rum/sites` haben Pagination — immer alle Seiten laden via while-Loop
+- `report_url` kommt aus der API (`PublicScanResource`/`ScanListResource` in der Laravel-App)
+  und wird in `get_latest_scan`, `list_scans` und `compare_domains` nur durchgereicht —
+  das URL-Schema `/scan/{public_id}` nie hier nachbauen. Bei privaten Scans trägt der Link
+  nur für den eingeloggten Eigentümer; zum Weitergeben ist `share_url` gedacht.
 - Claude Desktop unterstützt keinen `headers`-Parameter in `mcpServers` — `mcp-remote` als Wrapper nötig
 
 ## Deployment (Kurzform)

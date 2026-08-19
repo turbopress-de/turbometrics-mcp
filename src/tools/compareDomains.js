@@ -7,7 +7,10 @@ async function getLatestScanDetail(token, domain_url) {
 
   const { public_id } = scans[0];
   const detail = await api.get(token, `/scans/${encodeURIComponent(public_id)}`);
-  return detail.data?.result ?? {};
+  return {
+    report_url: detail.data?.report_url ?? null,
+    result: detail.data?.result ?? {},
+  };
 }
 
 export const compareDomains = {
@@ -28,13 +31,14 @@ export const compareDomains = {
     required: ['domain_url_a', 'domain_url_b'],
   },
   async handler(token, { domain_url_a, domain_url_b }) {
-    const [resultA, resultB] = await Promise.all([
+    const [scanA, scanB] = await Promise.all([
       getLatestScanDetail(token, domain_url_a),
       getLatestScanDetail(token, domain_url_b),
     ]);
 
-    const extract = (result, url) => ({
+    const extract = ({ report_url, result }, url) => ({
       domain: url,
+      report_url,
       score: result.scores?.overall,
       ttfb_ms: result.metrics?.ttfb_ms,
       findings_count: (result.findings ?? []).length,
@@ -43,8 +47,8 @@ export const compareDomains = {
     });
 
     return {
-      a: extract(resultA, domain_url_a),
-      b: extract(resultB, domain_url_b),
+      a: extract(scanA, domain_url_a),
+      b: extract(scanB, domain_url_b),
     };
   },
 };

@@ -42,6 +42,7 @@ export const listScans = {
     return {
       scans: scans.map((s) => ({
         public_id: s.public_id,
+        report_url: s.report_url ?? null,
         status: s.status,
         submitted_url: s.submitted_url,
         region: s.region,

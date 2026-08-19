@@ -92,6 +92,30 @@ describe('getLatestScan', () => {
     expect(result.summary_short).toBe('Sieht gut aus.');
   });
 
+  test('passes report_url through', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({
+        data: {
+          public_id: 'SCAN123',
+          report_url: 'https://turbometrics.io/scan/SCAN123',
+          result: { scores: { overall: 94 } },
+        },
+      });
+
+    const result = await getLatestScan.handler(TOKEN, { domain_url: 'https://example.com/' });
+    expect(result.report_url).toBe('https://turbometrics.io/scan/SCAN123');
+  });
+
+  test('report_url is null when the API does not send one', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: { public_id: 'SCAN123', result: {} } });
+
+    const result = await getLatestScan.handler(TOKEN, { domain_url: 'https://example.com/' });
+    expect(result.report_url).toBeNull();
+  });
+
   test('throws when no scan found', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] });
     await expect(getLatestScan.handler(TOKEN, { domain_url: 'https://unknown.com/' }))
@@ -238,6 +262,19 @@ describe('compareDomains', () => {
     expect(result.b.warning_findings).toBe(1);
   });
 
+  test('passes report_url through for both sides', async () => {
+    mockApi.get
+      .mockResolvedValueOnce(scanListA)
+      .mockResolvedValueOnce(scanListB)
+      .mockResolvedValueOnce({ data: { public_id: 'A1', report_url: 'https://turbometrics.io/scan/A1', result: {} } })
+      .mockResolvedValueOnce({ data: { public_id: 'B1', result: {} } });
+
+    const result = await compareDomains.handler(TOKEN, { domain_url_a: 'https://a.com/', domain_url_b: 'https://b.com/' });
+
+    expect(result.a.report_url).toBe('https://turbometrics.io/scan/A1');
+    expect(result.b.report_url).toBeNull();
+  });
+
   test('throws when domain A has no scan', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce(scanListB);
     await expect(compareDomains.handler(TOKEN, { domain_url_a: 'https://a.com/', domain_url_b: 'https://b.com/' }))
@@ -323,6 +360,19 @@ describe('listScans', () => {
     expect(result.scans[0].public_id).toBe('S1');
     expect(result.scans[0].scores.overall).toBe(91);
     expect(result.meta.total).toBe(1);
+  });
+
+  test('passes report_url through, null when missing', async () => {
+    mockApi.get.mockResolvedValueOnce({
+      data: [
+        { public_id: 'S1', report_url: 'https://turbometrics.io/scan/S1' },
+        { public_id: 'S2' },
+      ],
+      meta: {},
+    });
+    const result = await listScans.handler(TOKEN, {});
+    expect(result.scans[0].report_url).toBe('https://turbometrics.io/scan/S1');
+    expect(result.scans[1].report_url).toBeNull();
   });
 });
 
