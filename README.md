@@ -37,16 +37,16 @@ Ask your AI assistant questions like:
 | Tool | Description |
 |------|-------------|
 | `list_domains` | List all monitored URLs with schedule and status |
-| `get_latest_scan` | Latest scan result: score, findings, TTFB, Core Web Vitals |
+| `get_latest_scan` | Latest scan result: score, findings, TTFB, Core Web Vitals, report link |
 | `get_scan_history` | Score history — works for monitored and new domains |
 | `get_findings` | Detailed findings for a specific scan |
 | `list_alerts` | List open or resolved alerts |
 | `get_rum_summary` | Real User Monitoring summary: Core Web Vitals p75 values |
 | `get_rum_metric_history` | Daily trend for a RUM metric (LCP, CLS, INP, FCP, TTFB) |
 | `get_rum_pages` | Slowest pages ranked by metric |
-| `compare_domains` | Compare two domains side by side |
+| `compare_domains` | Compare two domains side by side, with a report link for each |
 | `trigger_scan` | Start a scan for any URL — new or monitored; supports region, force, and auth |
-| `list_scans` | List scans — filterable by domain, status and page |
+| `list_scans` | List scans — filterable by domain, status and page, with report links |
 | `get_alert` | Get details for a specific alert |
 | `mark_alerts_read` | Mark alerts as read |
 | `get_account_info` | Account details: plan, API limits, RUM status |
@@ -58,11 +58,49 @@ Get your token at [turbometrics.io/profile/api](https://turbometrics.io/profile/
 
 ## Setup
 
-### Claude Desktop (Mac)
+### Claude (recommended)
 
-1. Install Node.js: `brew install node`
-2. Get your API token from [Profile → API](https://turbometrics.io/profile/api)
-3. Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Claude supports custom connectors straight from the UI — no Node.js, no `npx`,
+no config file to edit.
+
+1. Get your API token from [Profile → API](https://turbometrics.io/profile/api)
+2. In Claude: **Settings → Connectors → "Add custom connector"**
+3. Enter:
+   - **Name:** `turbometrics`
+   - **URL:** `https://turbometrics.io/mcp`
+4. Under **"Request headers"**, add:
+   - **Name:** `Authorization`
+   - **Value:** `Bearer YOUR_API_TOKEN`
+5. Click **"Add"**
+
+The connector applies to your whole Claude account — claude.ai, desktop app and
+mobile apps alike.
+
+### ChatGPT
+
+Developer mode is in beta and requires ChatGPT Plus or Pro.
+
+1. Enable **Settings → Developer Mode**
+2. **Apps & Connectors → create a new connector**
+3. Server URL: `https://turbometrics.io/mcp`
+4. Auth header: `Authorization: Bearer YOUR_API_TOKEN`
+
+### Other MCP clients (Cursor, Windsurf, etc.)
+
+| Setting | Value |
+|---------|-------|
+| Server URL | `https://turbometrics.io/mcp` |
+| Transport | Streamable HTTP |
+| Auth | `Authorization: Bearer YOUR_API_TOKEN` |
+
+### Fallback: local setup via `mcp-remote`
+
+Only needed for clients without a connector UI, or for older Claude/ChatGPT
+desktop versions. Requires Node.js (`brew install node`, or the installer from
+[nodejs.org](https://nodejs.org/en/download)).
+
+`~/Library/Application Support/Claude/claude_desktop_config.json` on Mac,
+`%APPDATA%\Claude\claude_desktop_config.json` on Windows:
 
 ```json
 {
@@ -80,19 +118,10 @@ Get your token at [turbometrics.io/profile/api](https://turbometrics.io/profile/
 }
 ```
 
-4. Restart Claude Desktop
+Adjust the `npx` path to your system (`which npx` on Mac, `where npx` in CMD on
+Windows), then restart the client.
 
-### Claude Desktop (Windows)
-
-Same as Mac — find your `npx` path with `where npx` in CMD.
-
-### Other MCP Clients (Cursor, Windsurf, etc.)
-
-| Setting | Value |
-|---------|-------|
-| Server URL | `https://turbometrics.io/mcp` |
-| Transport | Streamable HTTP |
-| Auth | `Authorization: Bearer YOUR_API_TOKEN` |
+Step-by-step instructions for every client: [turbometrics.io/docs/mcp](https://turbometrics.io/docs/mcp)
 
 ## Plans
 
