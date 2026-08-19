@@ -173,9 +173,17 @@ HTTP-Clients den `Authorization`-Header, der Bearer-Token käme also nie an.
 Die Token-Dateien `.mcpregistry_github_token` und `.mcpregistry_registry_token` landen
 im Repo-Verzeichnis und sind in der `.gitignore` — nie einchecken.
 
-## Claude Desktop Setup (Mac)
+## Client-Anbindung
 
-Config: ~/Library/Application Support/Claude/claude_desktop_config.json
+Regelfall ist der Connector in der Oberfläche: In Claude unter
+**Einstellungen → Connectors → „Add custom connector"** die URL
+`https://turbometrics.io/mcp` eintragen und `Authorization: Bearer DEIN_API_TOKEN`
+als Request-Header hinterlegen. Kein Node.js, kein npx, keine Konfigurationsdatei.
+ChatGPT nimmt dieselben Angaben im Developer Mode entgegen. Ausführlich in der
+Doku unter `/docs/mcp` (Quelle: `resources/docs/{de,en}/mcp.md` in der Laravel-App).
+
+Rückfall für Clients ohne Connector-Oberfläche und ältere Desktop-Versionen:
+`mcp-remote` in `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -193,8 +201,8 @@ Config: ~/Library/Application Support/Claude/claude_desktop_config.json
 }
 ```
 
-Voraussetzung: Node.js via Homebrew installiert (`brew install node`)
-npx-Pfad ggf. anpassen (`which npx`)
+Voraussetzung dafür: Node.js via Homebrew installiert (`brew install node`),
+npx-Pfad ggf. anpassen (`which npx`).
 
 ## Bekannte Eigenheiten
 
@@ -205,7 +213,9 @@ npx-Pfad ggf. anpassen (`which npx`)
   und wird in `get_latest_scan`, `list_scans` und `compare_domains` nur durchgereicht —
   das URL-Schema `/scan/{public_id}` nie hier nachbauen. Bei privaten Scans trägt der Link
   nur für den eingeloggten Eigentümer; zum Weitergeben ist `share_url` gedacht.
-- Claude Desktop unterstützt keinen `headers`-Parameter in `mcpServers` — `mcp-remote` als Wrapper nötig
+- Die Konfigurationsdatei von Claude Desktop kennt keinen `headers`-Parameter in
+  `mcpServers` — auf diesem Weg bleibt `mcp-remote` als Wrapper nötig. Das ist aber
+  nur noch der Rückfall; der Connector in der Oberfläche nimmt Header direkt entgegen.
 
 ## Deployment (Kurzform)
 
