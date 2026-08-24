@@ -41,6 +41,12 @@ async function handleMcp(req, res, body) {
         res.set(unauthorizedHeaders());
       }
 
+      if (status === 503) {
+        // Ohne diesen Hinweis behandeln manche Clients einen 503 wie einen
+        // endgueltigen Fehler, statt es gleich noch einmal zu versuchen.
+        res.set({ 'Retry-After': '5' });
+      }
+
       res.status(status).json({ error: err.message });
     }
   }

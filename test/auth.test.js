@@ -73,11 +73,31 @@ describe('assertTokenValid', () => {
     await expect(assertTokenValid('erneuert')).resolves.toBeUndefined();
   });
 
-  test('behandelt einen Netzwerkfehler als 401, nicht als 500', async () => {
-    // Ein 500 brechen Clients ab; auf 401 erneuern sie und versuchen es
-    // erneut — das ist bei einer wackelnden Verbindung das bessere Verhalten.
+  test('meldet 503, wenn die API nicht erreichbar ist', async () => {
+    // Nicht 401: "kann nicht pruefen" ist kein Urteil ueber den Token. Als 401
+    // sah eine hakende API fuer den Nutzer aus wie eine abgelaufene Anmeldung.
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
 
+    await expect(assertTokenValid('egal')).rejects.toMatchObject({ status: 503 });
+  });
+
+  test('meldet 503, wenn die API selbst ausfaellt', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 500 });
+
+    await expect(assertTokenValid('egal')).rejects.toMatchObject({ status: 503 });
+  });
+
+  test('meldet 401 nur, wenn die API den Token wirklich ablehnt', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 403 });
+
     await expect(assertTokenValid('egal')).rejects.toMatchObject({ status: 401 });
+  });
+
+  test('merkt sich einen unpruefbaren Token nicht als gueltig', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await expect(assertTokenValid('spaeter')).rejects.toMatchObject({ status: 503 });
+    await expect(assertTokenValid('spaeter')).resolves.toBeUndefined();
   });
 });

@@ -85,6 +85,21 @@ describe('POST /mcp', () => {
     expect(res.status).toBe(200);
   });
 
+  test('reicht ein 503 aus der Tokenpruefung mit Retry-After durch', async () => {
+    // Faellt die Pruefung aus, darf das nicht als 401 herauskommen: sonst wirft
+    // der Client eine funktionierende Autorisierung weg und der Nutzer muss
+    // sich ohne Grund neu anmelden.
+    assertTokenValid.mockRejectedValueOnce(
+      Object.assign(new Error('token_check_unavailable'), { status: 503 })
+    );
+
+    const res = await toolsList();
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get('retry-after')).toBe('5');
+    expect(res.headers.get('www-authenticate')).toBeNull();
+  });
+
   test('verlangt einen Token', async () => {
     const res = await fetch(`${base}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
 
