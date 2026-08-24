@@ -2,6 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 
+import { extractToken } from './auth.js';
+
 import { listDomains } from './tools/listDomains.js';
 import { getLatestScan } from './tools/getLatestScan.js';
 import { getScanHistory } from './tools/getScanHistory.js';
@@ -38,14 +40,6 @@ export const TOOLS = [
   listScans,
   getAlert,
 ];
-
-function extractToken(req) {
-  const auth = req.headers['authorization'] ?? '';
-  if (!auth.startsWith('Bearer ')) {
-    return null;
-  }
-  return auth.slice(7).trim() || null;
-}
 
 function jsonSchemaToZod(schema) {
   if (!schema || schema.type !== 'object') return z.object({});

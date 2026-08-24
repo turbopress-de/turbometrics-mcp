@@ -1,46 +1,46 @@
 import express from 'express';
 import { createMcpTransport } from './server.js';
+import { assertTokenValid, extractToken, unauthorizedHeaders } from './auth.js';
 
 const PORT = process.env.PORT || 3001;
 const app = express();
 
 app.use(express.json());
 
-app.post('/mcp', async (req, res) => {
+/**
+ * Ein abgelaufener Token muss auf HTTP-Ebene als 401 herauskommen, nicht als
+ * Werkzeug-Fehlertext: Clients erneuern reaktiv auf 401. Kommt stattdessen ein
+ * 200 mit Fehlertext, erneuert Claude nie und die Verbindung bleibt tot, bis
+ * jemand sie von Hand neu aufbaut.
+ */
+async function handleMcp(req, res, body) {
   try {
-    const transport = createMcpTransport(req);
-    await transport.handleRequest(req, res, req.body);
-  } catch (err) {
-    const status = err.status ?? 500;
-    if (!res.headersSent) {
-      res.status(status).json({ error: err.message });
-    }
-  }
-});
+    const token = extractToken(req);
 
-app.get('/mcp', async (req, res) => {
-  try {
-    const transport = createMcpTransport(req);
-    await transport.handleRequest(req, res);
-  } catch (err) {
-    const status = err.status ?? 500;
-    if (!res.headersSent) {
-      res.status(status).json({ error: err.message });
+    if (!token) {
+      throw Object.assign(new Error('Missing or invalid Authorization header'), { status: 401 });
     }
-  }
-});
 
-app.delete('/mcp', async (req, res) => {
-  try {
+    await assertTokenValid(token);
+
     const transport = createMcpTransport(req);
-    await transport.handleRequest(req, res);
+    await transport.handleRequest(req, res, body);
   } catch (err) {
     const status = err.status ?? 500;
+
     if (!res.headersSent) {
+      if (status === 401) {
+        res.set(unauthorizedHeaders());
+      }
+
       res.status(status).json({ error: err.message });
     }
   }
-});
+}
+
+app.post('/mcp', (req, res) => handleMcp(req, res, req.body));
+app.get('/mcp', (req, res) => handleMcp(req, res, undefined));
+app.delete('/mcp', (req, res) => handleMcp(req, res, undefined));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
