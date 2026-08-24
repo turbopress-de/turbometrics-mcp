@@ -1,12 +1,11 @@
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import { createMcpTransport } from './server.js';
 import { assertTokenValid, extractToken, unauthorizedHeaders } from './auth.js';
 import { normalizeProtocolVersion } from './protocolVersion.js';
 
 const PORT = process.env.PORT || 3001;
-const app = express();
-
-app.use(express.json());
 
 /**
  * Ein abgelaufener Token muss auf HTTP-Ebene als 401 herauskommen, nicht als
@@ -47,14 +46,33 @@ async function handleMcp(req, res, body) {
   }
 }
 
-app.post('/mcp', (req, res) => handleMcp(req, res, req.body));
-app.get('/mcp', (req, res) => handleMcp(req, res, undefined));
-app.delete('/mcp', (req, res) => handleMcp(req, res, undefined));
+/**
+ * Die App wird gebaut statt beim Import gestartet, damit der Integrationstest
+ * sie auf einem eigenen Port hochziehen kann. Ohne diese Trennung laesst sich
+ * der Weg durch den echten Transport nur von Hand pruefen — und genau dort sass
+ * der Fehler, der am 2026-08-24 jeden Werkzeugaufruf mit 400 beantwortet hat.
+ */
+export function createApp() {
+  const app = express();
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
-});
+  app.use(express.json());
 
-app.listen(PORT, () => {
-  console.log(`wpperf-mcp läuft auf Port ${PORT}`);
-});
+  app.post('/mcp', (req, res) => handleMcp(req, res, req.body));
+  app.get('/mcp', (req, res) => handleMcp(req, res, undefined));
+  app.delete('/mcp', (req, res) => handleMcp(req, res, undefined));
+
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  return app;
+}
+
+const startedDirectly =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (startedDirectly) {
+  createApp().listen(PORT, () => {
+    console.log(`wpperf-mcp läuft auf Port ${PORT}`);
+  });
+}
