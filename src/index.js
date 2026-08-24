@@ -1,6 +1,7 @@
 import express from 'express';
 import { createMcpTransport } from './server.js';
 import { assertTokenValid, extractToken, unauthorizedHeaders } from './auth.js';
+import { normalizeProtocolVersion } from './protocolVersion.js';
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -22,6 +23,14 @@ async function handleMcp(req, res, body) {
     }
 
     await assertTokenValid(token);
+
+    const downgraded = normalizeProtocolVersion(req);
+
+    if (downgraded) {
+      // Die einzige Spur, an der sich ablesen laesst, welche Revision die
+      // Clients inzwischen sprechen — und wann das SDK nachziehen sollte.
+      console.log(`Protokollrevision ${downgraded} herabgestuft (SDK kennt sie nicht)`);
+    }
 
     const transport = createMcpTransport(req);
     await transport.handleRequest(req, res, body);
