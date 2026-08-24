@@ -179,6 +179,19 @@ am 01.08.2026 war das der Grund, die alte Domain `/mcp` weiter ausliefern zu las
 statt sie umzuleiten: Bei einem Cross-Origin-Redirect verwerfen die meisten
 HTTP-Clients den `Authorization`-Header, der Bearer-Token käme also nie an.
 
+Am 24.08.2026 wurde diese Entscheidung umgekehrt: `turbometrics.de/mcp` leitet jetzt
+per 308 auf `.io`. Der Grund ist, dass mit OAuth die Anmeldung selbst domaingebunden
+ist — die Discovery liegt nur unter `.io`, der 401 von `.de` verwies auf eine fremde
+Domain, und diesen Sprung geht kein Client mit (RFC 9728). Der Endpunkt war damit
+unter `.de` nicht mehr nutzbar, sondern nur noch eine Sackgasse.
+
+Der Einwand von oben gilt weiterhin: Ein Client, der einen `Authorization`-Header
+schickt, verliert ihn beim Cross-Origin-Redirect. Das war vertretbar, weil an dem Tag
+im Access-Log von `.de` über 24 Stunden **kein einziger** erfolgreicher `/mcp`-Aufruf
+stand — 461 vergebliche Anmeldeversuche, 1343 Health-Checks, sonst nichts. Es gab also
+keinen Header-Token-Nutzer mehr, dem der Redirect etwas hätte wegnehmen können.
+`location = /mcp/health` bleibt lokal, weil das Monitoring minütlich darüber pollt.
+
 Die Token-Dateien `.mcpregistry_github_token` und `.mcpregistry_registry_token` landen
 im Repo-Verzeichnis und sind in der `.gitignore` — nie einchecken.
 
@@ -186,8 +199,10 @@ im Repo-Verzeichnis und sind in der `.gitignore` — nie einchecken.
 
 Regelfall ist der Connector in der Oberfläche: In Claude unter
 **Einstellungen → Connectors → „Add custom connector"** die URL
-`https://turbometrics.io/mcp` eintragen und `Authorization: Bearer DEIN_API_TOKEN`
-als Request-Header hinterlegen. Kein Node.js, kein npx, keine Konfigurationsdatei.
+`https://turbometrics.io/mcp` eintragen, hinzufügen, auf **„Connect"** klicken und im
+Browser zustimmen. Kein Node.js, kein npx, keine Konfigurationsdatei — und seit dem
+OAuth-Umbau auch kein Request-Header mehr; das Feld gibt es in Claudes Oberfläche gar
+nicht mehr.
 ChatGPT nimmt dieselben Angaben im Developer Mode entgegen. Ausführlich in der
 Doku unter `/docs/mcp` (Quelle: `resources/docs/{de,en}/mcp.md` in der Laravel-App).
 
