@@ -121,6 +121,15 @@ docker run -d \
 Nur bei Änderungen an src/ oder package.json:
 docker build -t wpperf-mcp . && docker compose up -d --force-recreate
 
+Seit 2026-08-24 trägt docker-compose.yml einen build-Kontext, deshalb tut es
+auch: docker compose up -d --build
+
+**Ohne diesen Kontext war `--build` ein stiller Leerlauf.** Es gab keinen
+Bauplan, also nahm compose das vorhandene Abbild und meldete "Container
+Running" — das Flag sah aus, als hätte es gewirkt, während der Container
+tagealt weiterlief. Genau so blieb eine fertige Änderung am 2026-08-24
+unbemerkt liegen.
+
 **Nicht `docker restart`.** Der Befehl startet den *bestehenden* Container neu,
 und der hängt an der Abbild-ID, mit der er erzeugt wurde — ein frisch gebautes
 Abbild wird ignoriert. Der Bau läuft durch, der Neustart läuft durch, alles

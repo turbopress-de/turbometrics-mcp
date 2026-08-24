@@ -1,6 +1,13 @@
 services:
   mcp:
     image: wpperf-mcp
+    # Ohne diesen Block war 'docker compose up -d --build' ein stiller
+    # Leerlauf: ohne build-Kontext gibt es nichts zu bauen, compose nahm das
+    # vorhandene Image und meldete "Container Running". Am 2026-08-24 blieb so
+    # eine ausgerollte Aenderung unbemerkt liegen — das Flag sah aus, als
+    # haette es gewirkt.
+    build:
+      context: .
     container_name: wpperf-mcp
     restart: unless-stopped
     init: true
