@@ -30,7 +30,8 @@ Ask your AI assistant questions like:
 ## Requirements
 
 - A turbometrics.io account (Starter plan or higher)
-- An API token from [Profile → API](https://turbometrics.io/profile/api)
+
+That's it. Sign-in happens in your browser — there is no token to copy.
 
 ## Available Tools
 
@@ -53,8 +54,13 @@ Ask your AI assistant questions like:
 
 ## Authentication
 
-Every request requires a Bearer token passed via the `Authorization` header.
-Get your token at [turbometrics.io/profile/api](https://turbometrics.io/profile/api).
+OAuth 2.1 with PKCE. Your client sends you to turbometrics.io, you approve once,
+and the client holds the token from then on. Access tokens last an hour and are
+renewed in the background; you can revoke any connected app at any time under
+[Profile → API & apps](https://turbometrics.io/profile/api).
+
+Clients that do not speak OAuth can still authenticate with a personal API
+token from the same page, sent as `Authorization: Bearer YOUR_API_TOKEN`.
 
 ## Setup
 
@@ -63,18 +69,26 @@ Get your token at [turbometrics.io/profile/api](https://turbometrics.io/profile/
 Claude supports custom connectors straight from the UI — no Node.js, no `npx`,
 no config file to edit.
 
-1. Get your API token from [Profile → API](https://turbometrics.io/profile/api)
-2. In Claude: **Settings → Connectors → "Add custom connector"**
-3. Enter:
+1. In Claude: **Settings → Connectors → "Add custom connector"**
+2. Enter:
    - **Name:** `turbometrics`
    - **URL:** `https://turbometrics.io/mcp`
-4. Under **"Request headers"**, add:
-   - **Name:** `Authorization`
-   - **Value:** `Bearer YOUR_API_TOKEN`
-5. Click **"Add"**
+3. Click **"Add"**, then **"Connect"**
+4. Approve the access in the browser window that opens
+
+Use `.io`, not `.de` — the sign-in lives only on `turbometrics.io`, and a
+connector pointed at the other domain cannot authorise itself.
 
 The connector applies to your whole Claude account — claude.ai, desktop app and
 mobile apps alike.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http turbometrics https://turbometrics.io/mcp
+```
+
+The browser opens for sign-in on first use.
 
 ### ChatGPT
 
@@ -83,7 +97,7 @@ Developer mode is in beta and requires ChatGPT Plus or Pro.
 1. Enable **Settings → Developer Mode**
 2. **Apps & Connectors → create a new connector**
 3. Server URL: `https://turbometrics.io/mcp`
-4. Auth header: `Authorization: Bearer YOUR_API_TOKEN`
+4. Choose OAuth as the authentication method and approve in the browser
 
 ### Other MCP clients (Cursor, Windsurf, etc.)
 
@@ -91,12 +105,13 @@ Developer mode is in beta and requires ChatGPT Plus or Pro.
 |---------|-------|
 | Server URL | `https://turbometrics.io/mcp` |
 | Transport | Streamable HTTP |
-| Auth | `Authorization: Bearer YOUR_API_TOKEN` |
+| Auth | OAuth 2.1 (discovery is automatic), or `Authorization: Bearer YOUR_API_TOKEN` |
 
 ### Fallback: local setup via `mcp-remote`
 
 Only needed for clients without a connector UI, or for older Claude/ChatGPT
-desktop versions. Requires Node.js (`brew install node`, or the installer from
+desktop versions. `mcp-remote` performs the OAuth flow itself — no token in the
+config file. Requires Node.js (`brew install node`, or the installer from
 [nodejs.org](https://nodejs.org/en/download)).
 
 `~/Library/Application Support/Claude/claude_desktop_config.json` on Mac,
@@ -109,9 +124,7 @@ desktop versions. Requires Node.js (`brew install node`, or the installer from
       "command": "/opt/homebrew/bin/npx",
       "args": [
         "mcp-remote",
-        "https://turbometrics.io/mcp",
-        "--header",
-        "Authorization: Bearer YOUR_API_TOKEN"
+        "https://turbometrics.io/mcp"
       ]
     }
   }

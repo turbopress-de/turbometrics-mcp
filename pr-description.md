@@ -5,7 +5,7 @@
 - **Name:** turbometrics
 - **URL:** https://turbometrics.io/mcp
 - **Transport:** Streamable HTTP / SSE
-- **Auth:** Bearer Token (API key from turbometrics.io/profile/api)
+- **Auth:** OAuth 2.1 with PKCE (dynamic client registration, RFC 7591; browser sign-in, no token to copy). A personal API token is still accepted for clients without OAuth support.
 - **Source:** https://github.com/turbopress-de/turbometrics-mcp
 
 ## Description
@@ -14,7 +14,7 @@ turbometrics is a website performance monitoring SaaS focused on WordPress sites
 This MCP server gives AI assistants direct access to performance data, scan results,
 and real user monitoring metrics.
 
-## Tools (12)
+## Tools (14)
 
 | Tool | Type | Description |
 |------|------|-------------|
@@ -23,6 +23,8 @@ and real user monitoring metrics.
 | `get_scan_history` | read | Score history — works for new and monitored domains |
 | `get_findings` | read | Detailed findings for a scan |
 | `list_alerts` | read | Open or resolved alerts |
+| `get_alert` | read | Details for a specific alert |
+| `list_scans` | read | Recent scans, filterable by status |
 | `get_rum_summary` | read | Real User Monitoring: Core Web Vitals p75 |
 | `get_rum_metric_history` | read | Daily trend for LCP/CLS/INP/FCP/TTFB |
 | `get_rum_pages` | read | Slowest pages per metric |
@@ -45,7 +47,8 @@ and real user monitoring metrics.
 ## Requirements
 
 - turbometrics.io account (Starter plan or higher)
-- API token from turbometrics.io/profile/api
+
+Sign-in runs through the browser via OAuth; no token needs to be copied.
 
 ## Category
 
