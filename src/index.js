@@ -61,6 +61,11 @@ async function handleMcp(req, res, body) {
 export function createApp() {
   const app = express();
 
+  // Express setzt sonst X-Powered-By auf jede Antwort. Das verraet ohne Not,
+  // was hier laeuft, und ist eine Vorlage fuer die gezielte Suche nach
+  // passenden Schwachstellen. Kein Client braucht den Header.
+  app.disable('x-powered-by');
+
   app.use(express.json());
 
   app.post('/mcp', (req, res) => handleMcp(req, res, req.body));

@@ -115,6 +115,15 @@ describe('POST /mcp', () => {
     expect(liveTransportCount()).toBe(0);
   });
 
+  test('nennt die eingesetzte Technik nicht', async () => {
+    // X-Powered-By verraet ohne Not, was hier laeuft, und ist damit eine
+    // Vorlage fuer die gezielte Suche nach passenden Schwachstellen. Der
+    // Header hat keinen Nutzen fuer irgendeinen Client.
+    const res = await toolsList({ 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION });
+
+    expect(res.headers.get('x-powered-by')).toBeNull();
+  });
+
   test('verlangt einen Token', async () => {
     const res = await fetch(`${base}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
 
