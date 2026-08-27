@@ -83,3 +83,44 @@ describe('api shorthand', () => {
     expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ method: 'POST' }));
   });
 });
+
+describe('Fehlertexte geben nichts Internes preis', () => {
+  test('haelt einen Serverfehler allgemein', async () => {
+    // Der Text landet als Werkzeugantwort beim Modell und damit im Verlauf des
+    // Nutzers. Bei einem 5xx steht dort im Zweifel ein Stacktrace oder ein
+    // Datenbankfehler — nichts, was dort hingehoert.
+    mockFetch.mockResolvedValue(
+      makeResponse(
+        { message: 'SQLSTATE[HY000] [1045] Access denied for user tm_live@10.0.0.7' },
+        { status: 500, ok: false }
+      )
+    );
+
+    await expect(apiRequest(TOKEN, 'GET', '/domains')).rejects.toThrow(
+      /API error 500 on GET \/domains/
+    );
+    await expect(apiRequest(TOKEN, 'GET', '/domains')).rejects.not.toThrow(/SQLSTATE|tm_live/);
+  });
+
+  test('kuerzt einen ueberlangen Fehlertext', async () => {
+    mockFetch.mockResolvedValue(
+      makeResponse({ message: 'x'.repeat(5000) }, { status: 422, ok: false })
+    );
+
+    const fehler = await apiRequest(TOKEN, 'GET', '/domains').catch((e) => e);
+
+    expect(fehler.message.length).toBeLessThan(1000);
+  });
+
+  test('reicht die Meldung eines 4xx weiter', async () => {
+    // Unveraendert: bei einer Fehleingabe ist die Meldung der API genau das,
+    // was dem Nutzer weiterhilft.
+    mockFetch.mockResolvedValue(
+      makeResponse({ message: 'The url field is required.' }, { status: 422, ok: false })
+    );
+
+    await expect(apiRequest(TOKEN, 'GET', '/domains')).rejects.toThrow(
+      'API error 422 on GET /domains: The url field is required.'
+    );
+  });
+});

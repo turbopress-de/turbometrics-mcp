@@ -83,7 +83,20 @@ function jsonSchemaToZod(schema) {
   return z.object(shape);
 }
 
-export function createMcpTransport(req) {
+// Pro Anfrage entsteht ein eigener McpServer samt Transport — der Server
+// arbeitet zustandslos. Bisher wurde keiner davon je geschlossen; der Zaehler
+// belegt in test/mcpEndpoint.test.js, dass das Aufraeumen wirklich laeuft.
+let liveTransports = 0;
+
+export function liveTransportCount() {
+  return liveTransports;
+}
+
+/**
+ * @param res optional. Ist eine Antwort dabei, haengt sich das Aufraeumen an
+ *            ihr Ende — bei SSE also an den Moment, in dem der Client geht.
+ */
+export async function createMcpTransport(req, res) {
   const token = extractToken(req);
   if (!token) {
     throw Object.assign(new Error('Missing or invalid Authorization header'), { status: 401 });
@@ -126,7 +139,26 @@ export function createMcpTransport(req) {
     sessionIdGenerator: undefined,
   });
 
-  server.connect(transport);
+  // Abgewartet: connect() verdrahtet die Handler zwar synchron, laeuft danach
+  // aber noch in transport.start(). Ohne await beginnt handleRequest unter
+  // Umstaenden, bevor der Transport fertig gestartet ist.
+  await server.connect(transport);
+
+  liveTransports++;
+
+  let closed = false;
+  const cleanup = async () => {
+    if (closed) return;
+    closed = true;
+    liveTransports--;
+
+    // server.close() schliesst den Transport mit; der zweite Aufruf ist die
+    // Absicherung fuer den Fall, dass connect() schon getrennt war.
+    await server.close().catch(() => {});
+    await transport.close().catch(() => {});
+  };
+
+  res?.once('close', cleanup);
 
   return transport;
 }

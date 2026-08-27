@@ -430,3 +430,82 @@ describe('getAccountInfo', () => {
     expect(result.rum.sites_count).toBe(0);
   });
 });
+
+// ─── triggerScan: Eingabepruefung ────────────────────────────────────────────
+describe('triggerScan prueft die Eingabe', () => {
+  beforeEach(reset);
+
+  test('laesst eine URL ohne Schema unveraendert durch', async () => {
+    // Die API ergaenzt fehlende Schemata selbst (UrlNormalizer). Wer hier auf
+    // ein Schema besteht, nimmt dem Nutzer den Fall "scanne example.com" weg.
+    mockApi.post.mockResolvedValueOnce({ data: { id: 'N', status: 'pending' } });
+
+    await triggerScan.handler(TOKEN, { domain_url: 'example.com' });
+
+    expect(mockApi.post).toHaveBeenCalledWith(TOKEN, '/scans', { url: 'example.com' });
+  });
+
+  test('weist ein fremdes Schema ab, ohne die API zu fragen', async () => {
+    await expect(
+      triggerScan.handler(TOKEN, { domain_url: 'file:///etc/passwd' })
+    ).rejects.toThrow(/http/i);
+
+    expect(mockApi.post).not.toHaveBeenCalled();
+  });
+
+  test('weist eine leere URL ab', async () => {
+    await expect(triggerScan.handler(TOKEN, { domain_url: '   ' })).rejects.toThrow();
+    expect(mockApi.post).not.toHaveBeenCalled();
+  });
+
+  test('weist eine ueberlange URL ab', async () => {
+    // Dieselbe Grenze wie die API (max:2048) — sonst laeuft der Aufruf erst
+    // dort auf einen Validierungsfehler.
+    await expect(
+      triggerScan.handler(TOKEN, { domain_url: 'https://e.de/' + 'a'.repeat(2100) })
+    ).rejects.toThrow();
+
+    expect(mockApi.post).not.toHaveBeenCalled();
+  });
+
+  test('weist einen unbekannten auth-Typ ab', async () => {
+    await expect(
+      triggerScan.handler(TOKEN, {
+        domain_url: 'https://example.com',
+        auth: { type: 'oauth', token: 'geheim' },
+      })
+    ).rejects.toThrow(/basic|header/i);
+
+    expect(mockApi.post).not.toHaveBeenCalled();
+  });
+
+  test('reicht eine gueltige basic-Anmeldung durch', async () => {
+    mockApi.post.mockResolvedValueOnce({ data: { id: 'N', status: 'pending' } });
+
+    await triggerScan.handler(TOKEN, {
+      domain_url: 'https://example.com',
+      auth: { type: 'basic', username: 'u', password: 'p' },
+    });
+
+    expect(mockApi.post).toHaveBeenCalledWith(TOKEN, '/scans', {
+      url: 'https://example.com',
+      auth: { type: 'basic', username: 'u', password: 'p' },
+    });
+  });
+
+  test('reicht nur die bekannten auth-Felder weiter', async () => {
+    // Sonst wandern beliebige Schluessel aus der Modelleingabe in den
+    // API-Aufruf — das Schema stand auf z.any(), es gab also gar keine Pruefung.
+    mockApi.post.mockResolvedValueOnce({ data: { id: 'N', status: 'pending' } });
+
+    await triggerScan.handler(TOKEN, {
+      domain_url: 'https://example.com',
+      auth: { type: 'header', header_name: 'X-A', header_value: 'b', extra: 'weg' },
+    });
+
+    expect(mockApi.post).toHaveBeenCalledWith(TOKEN, '/scans', {
+      url: 'https://example.com',
+      auth: { type: 'header', header_name: 'X-A', header_value: 'b' },
+    });
+  });
+});

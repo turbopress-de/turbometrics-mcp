@@ -20,26 +20,32 @@ function makeReq(authHeader) {
   return { headers: authHeader ? { authorization: authHeader } : {} };
 }
 
+// createMcpTransport wartet server.connect() ab und ist deshalb async. Das
+// nach aussen sichtbare Verhalten ist unveraendert — index.js faengt den
+// Fehler so oder so ab und antwortet mit 401; belegt in
+// test/mcpEndpoint.test.js ('verlangt einen Token').
 describe('createMcpTransport', () => {
-  test('throws 401 when Authorization header is missing', () => {
-    expect(() => createMcpTransport(makeReq(null))).toThrow('Missing or invalid Authorization header');
-    try {
-      createMcpTransport(makeReq(null));
-    } catch (err) {
-      expect(err.status).toBe(401);
-    }
+  test('rejects with 401 when Authorization header is missing', async () => {
+    await expect(createMcpTransport(makeReq(null))).rejects.toThrow(
+      'Missing or invalid Authorization header'
+    );
+    await expect(createMcpTransport(makeReq(null))).rejects.toMatchObject({ status: 401 });
   });
 
-  test('throws 401 when Authorization is not Bearer scheme', () => {
-    expect(() => createMcpTransport(makeReq('Basic abc123'))).toThrow('Missing or invalid Authorization header');
+  test('rejects with 401 when Authorization is not Bearer scheme', async () => {
+    await expect(createMcpTransport(makeReq('Basic abc123'))).rejects.toThrow(
+      'Missing or invalid Authorization header'
+    );
   });
 
-  test('throws 401 when Bearer token is empty', () => {
-    expect(() => createMcpTransport(makeReq('Bearer '))).toThrow('Missing or invalid Authorization header');
+  test('rejects with 401 when Bearer token is empty', async () => {
+    await expect(createMcpTransport(makeReq('Bearer '))).rejects.toThrow(
+      'Missing or invalid Authorization header'
+    );
   });
 
-  test('returns transport object for valid Bearer token', () => {
-    const transport = createMcpTransport(makeReq('Bearer valid-token-123'));
+  test('returns transport object for valid Bearer token', async () => {
+    const transport = await createMcpTransport(makeReq('Bearer valid-token-123'));
     expect(transport).toBeDefined();
     expect(typeof transport.handleRequest).toBe('function');
   });

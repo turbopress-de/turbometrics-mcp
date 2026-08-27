@@ -15,6 +15,7 @@ jest.unstable_mockModule('../src/auth.js', () => ({
 }));
 
 const { createApp } = await import('../src/index.js');
+const { liveTransportCount } = await import('../src/server.js');
 const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js');
 
 let server;
@@ -98,6 +99,20 @@ describe('POST /mcp', () => {
     expect(res.status).toBe(503);
     expect(res.headers.get('retry-after')).toBe('5');
     expect(res.headers.get('www-authenticate')).toBeNull();
+  });
+
+  test('laesst keinen Transport zurueck, wenn die Antwort durch ist', async () => {
+    // Pro Anfrage entstand ein neuer McpServer samt Transport, und niemand
+    // schloss sie je. Bei einem zustandslosen Server ist das ein Leck, das mit
+    // jedem Aufruf waechst.
+    await toolsList({ 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION });
+
+    // res 'close' laeuft, nachdem der Client die Antwort hat — kurz nachfassen.
+    for (let i = 0; i < 50 && liveTransportCount() > 0; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
+    expect(liveTransportCount()).toBe(0);
   });
 
   test('verlangt einen Token', async () => {

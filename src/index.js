@@ -31,7 +31,7 @@ async function handleMcp(req, res, body) {
       console.log(`Protokollrevision ${downgraded} herabgestuft (SDK kennt sie nicht)`);
     }
 
-    const transport = createMcpTransport(req);
+    const transport = await createMcpTransport(req, res);
     await transport.handleRequest(req, res, body);
   } catch (err) {
     const status = err.status ?? 500;

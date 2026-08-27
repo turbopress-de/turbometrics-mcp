@@ -3,7 +3,13 @@ import { jest } from '@jest/globals';
 const mockFetch = jest.fn();
 jest.unstable_mockModule('node-fetch', () => ({ default: mockFetch }));
 
-const { unauthorizedHeaders, assertTokenValid, extractToken, resetTokenCache } =
+const {
+  unauthorizedHeaders,
+  assertTokenValid,
+  extractToken,
+  resetTokenCache,
+  cachedTokenCount,
+} =
   await import('../src/auth.js');
 
 beforeEach(() => {
@@ -99,5 +105,94 @@ describe('assertTokenValid', () => {
 
     await expect(assertTokenValid('spaeter')).rejects.toMatchObject({ status: 503 });
     await expect(assertTokenValid('spaeter')).resolves.toBeUndefined();
+  });
+});
+
+describe('Budget fuer fehlschlagende Pruefungen', () => {
+  // Ohne Deckel ist /mcp ein Durchlauferhitzer: jeder anonyme Aufruf mit
+  // irgendeinem Bearer kostet einen Aufruf der Laravel-API, und dort steht
+  // keine Bremse, weil ungueltige Tokens die auth-Middleware nie passieren.
+  test('hoert auf zu fragen, wenn zu viele Pruefungen scheitern', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401 });
+
+    for (let i = 0; i < 200; i++) {
+      await expect(assertTokenValid(`muell-${i}`, 1000)).rejects.toMatchObject({
+        status: expect.any(Number),
+      });
+    }
+
+    // Der Deckel liegt deutlich unter 200 — entscheidend ist, dass die Zahl
+    // der Aufrufe nach oben begrenzt ist und nicht mit der Last mitwaechst.
+    expect(mockFetch.mock.calls.length).toBeLessThan(200);
+  });
+
+  test('antwortet mit 503, sobald das Budget aufgebraucht ist', async () => {
+    // 503 und nicht 401: der Server hat den Token nicht geprueft, also faellt
+    // er auch kein Urteil ueber ihn. Ein 401 wuerde den Client dazu bringen,
+    // eine funktionierende Anmeldung wegzuwerfen.
+    mockFetch.mockResolvedValue({ ok: false, status: 401 });
+
+    let letzter;
+    for (let i = 0; i < 200; i++) {
+      letzter = await assertTokenValid(`muell-${i}`, 1000).catch((e) => e);
+    }
+
+    expect(letzter).toMatchObject({ status: 503 });
+  });
+
+  test('fuellt das Budget im naechsten Zeitfenster wieder auf', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401 });
+
+    for (let i = 0; i < 200; i++) {
+      await assertTokenValid(`muell-${i}`, 1000).catch(() => {});
+    }
+
+    const verbraucht = mockFetch.mock.calls.length;
+
+    await assertTokenValid('spaeter', 1000 + 61_000).catch(() => {});
+
+    expect(mockFetch.mock.calls.length).toBe(verbraucht + 1);
+  });
+
+  test('laesst einen gueltigen Token auch dann durch, wenn er im Gedaechtnis steht', async () => {
+    // Der Kern der Zusicherung: wer schon einmal erfolgreich geprueft wurde,
+    // fasst das Budget nie an. Ein Ansturm auf /mcp darf angemeldete Nutzer
+    // nicht aussperren.
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+    await assertTokenValid('gut', 1000);
+
+    mockFetch.mockResolvedValue({ ok: false, status: 401 });
+    for (let i = 0; i < 200; i++) {
+      await assertTokenValid(`muell-${i}`, 1000).catch(() => {});
+    }
+
+    await expect(assertTokenValid('gut', 1000)).resolves.toBeUndefined();
+  });
+
+  test('erfolgreiche Pruefungen verbrauchen kein Budget', async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+
+    for (let i = 0; i < 200; i++) {
+      await expect(assertTokenValid(`gut-${i}`, 1000)).resolves.toBeUndefined();
+    }
+
+    expect(mockFetch).toHaveBeenCalledTimes(200);
+  });
+});
+
+describe('Gedaechtnis raeumt sich selbst', () => {
+  test('haelt abgelaufene Eintraege nicht auf Dauer vor', async () => {
+    // Die Map wuchs bisher unbegrenzt: geloescht wurde nur bei Fehlschlag,
+    // nie nach Ablauf. Jeder je gesehene gueltige Token blieb im Klartext im
+    // Speicher liegen, bis der Prozess neu startete.
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+
+    for (let i = 0; i < 100; i++) {
+      await assertTokenValid(`alt-${i}`, 1000);
+    }
+
+    await assertTokenValid('neu', 1000 + 61_000);
+
+    expect(cachedTokenCount()).toBe(1);
   });
 });
