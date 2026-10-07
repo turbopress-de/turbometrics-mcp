@@ -1,14 +1,18 @@
 import { api } from '../api.js';
+import { READ_ONLY } from './annotations.js';
+import { findRumSite } from './domain.js';
 
 export const getRumPages = {
   name: 'get_rum_pages',
-  description: 'Returns the top underperforming pages for a given metric on a RUM-enabled domain (ordered by worst performance).',
+  title: 'Get slowest RUM pages',
+  description: 'Returns the slowest pages of a domain by Real User Monitoring data, worst first: path, p75 value in milliseconds and sample count for LCP, FCP or TTFB over the last 24 hours or 7 days. Use it to find which URLs drag the site\'s Core Web Vitals down. Requires RUM to be set up for the domain.',
+  annotations: READ_ONLY,
   inputSchema: {
     type: 'object',
     properties: {
       domain_url: {
         type: 'string',
-        description: 'URL of the domain (e.g. https://example.com)',
+        description: 'Domain with Real User Monitoring set up, e.g. https://example.com or example.com',
       },
       metric: {
         type: 'string',
@@ -23,7 +27,7 @@ export const getRumPages = {
         default: '24h',
       },
       limit: {
-        type: 'number',
+        type: 'integer',
         description: 'Number of pages to return, 1–100 (default: 25)',
         default: 25,
       },
@@ -31,19 +35,7 @@ export const getRumPages = {
     required: ['domain_url'],
   },
   async handler(token, { domain_url, metric = 'LCP', period = '24h', limit = 25 }) {
-    const host = new URL(domain_url).hostname;
-    let site = null;
-    let page = 1;
-    while (!site) {
-      const sitesData = await api.get(token, `/rum/sites?page=${page}&limit=50`);
-      const items = sitesData.data ?? [];
-      site = items.find((s) => s.domain === host) ?? null;
-      if (page >= (sitesData.meta?.last_page ?? 1)) break;
-      page++;
-    }
-    if (!site) {
-      throw new Error(`RUM-Site nicht gefunden für Domain: ${domain_url}`);
-    }
+    const { site, host } = await findRumSite(token, domain_url);
 
     const params = new URLSearchParams({ metric, period, limit: String(limit) });
     const data = await api.get(token, `/rum/sites/${site.id}/pages?${params}`);

@@ -51,8 +51,19 @@ PORT=3001
 | get_rum_metric_history | read | Tagesverlauf einer RUM-Metrik (LCP/CLS/INP/FCP/TTFB) |
 | get_rum_pages | read | Langsamste Seiten je RUM-Metrik |
 | compare_domains | read | Zwei Domains direkt vergleichen |
-| trigger_scan | write | Sofortigen Scan starten (neue oder bestehende Domains, mit region/force/auth) |
-| mark_alerts_read | write | Alerts als gelesen markieren |
+| trigger_scan | write | Sofortigen Scan starten (neue oder bestehende Domains, mit region de-fsn1/de-nbg1/fi-hel1, force, auth) |
+| mark_alerts_read | write | Alerts als gelesen markieren (nur die genannten IDs, nie leer) |
+| list_scans | read | Scans mit Status-/Domainfilter, seitenweise |
+| get_alert | read | Einzelner Alert |
+
+### Werkzeug-Hinweise (seit 1.6.0)
+Jedes Werkzeug traegt `title` und `annotations` mit allen vier Hinweisen
+(`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`).
+Anthropic und OpenAI verlangen sie fuer ihre Verzeichnisse an jedem Werkzeug.
+Lesende Werkzeuge nehmen `READ_ONLY` aus `src/tools/annotations.js`.
+`openWorldHint: true` hat nur `trigger_scan`, weil es fremde Websites abruft.
+Ein neues Werkzeug braucht eine bewusste Entscheidung und einen Eintrag in
+`test/toolAnnotations.test.js`, sonst wird der Test rot.
 | get_account_info | read | Account-Info: Plan, API-Limits, RUM-Status |
 
 ## Authentifizierung
