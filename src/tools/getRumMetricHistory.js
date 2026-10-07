@@ -1,14 +1,18 @@
 import { api } from '../api.js';
+import { READ_ONLY } from './annotations.js';
+import { findRumSite } from './domain.js';
 
 export const getRumMetricHistory = {
   name: 'get_rum_metric_history',
-  description: 'Returns daily historical data (p75/p50 values and sample counts) for a specific Core Web Vital metric of a RUM-enabled domain.',
+  title: 'Get RUM metric history',
+  description: 'Returns the daily history of one Real User Monitoring metric for a domain: per day the p75 and p50 value and the number of samples, over the last 7, 30 or 90 days, optionally filtered by device. Times are in milliseconds, CLS is unitless. Requires RUM to be set up for the domain.',
+  annotations: READ_ONLY,
   inputSchema: {
     type: 'object',
     properties: {
       domain_url: {
         type: 'string',
-        description: 'URL of the domain (e.g. https://example.com)',
+        description: 'Domain with Real User Monitoring set up, e.g. https://example.com or example.com',
       },
       metric: {
         type: 'string',
@@ -31,19 +35,7 @@ export const getRumMetricHistory = {
     required: ['domain_url', 'metric'],
   },
   async handler(token, { domain_url, metric, days = 30, device = 'all' }) {
-    const host = new URL(domain_url).hostname;
-    let site = null;
-    let page = 1;
-    while (!site) {
-      const sitesData = await api.get(token, `/rum/sites?page=${page}&limit=50`);
-      const items = sitesData.data ?? [];
-      site = items.find((s) => s.domain === host) ?? null;
-      if (page >= (sitesData.meta?.last_page ?? 1)) break;
-      page++;
-    }
-    if (!site) {
-      throw new Error(`RUM-Site nicht gefunden für Domain: ${domain_url}`);
-    }
+    const { site, host } = await findRumSite(token, domain_url);
 
     const params = new URLSearchParams({ metric, days: String(days), device });
     const data = await api.get(token, `/rum/sites/${site.id}/history?${params}`);

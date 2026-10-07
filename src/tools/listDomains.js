@@ -1,8 +1,11 @@
 import { api } from '../api.js';
+import { READ_ONLY } from './annotations.js';
 
 export const listDomains = {
   name: 'list_domains',
-  description: 'Lists all monitored domains with their status and the time of the last scan.',
+  title: 'List monitored domains',
+  description: 'Lists all domains the user monitors in turbometrics with scheduled scans: host, URL, scan schedule, whether monitoring is active, and when the last scheduled scan was dispatched. Use the url values as domain_url for get_latest_scan, get_scan_history or compare_domains.',
+  annotations: READ_ONLY,
   inputSchema: {
     type: 'object',
     properties: {},

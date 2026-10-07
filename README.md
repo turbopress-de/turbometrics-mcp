@@ -12,7 +12,7 @@ Ask your AI assistant questions like:
 - "Has my score improved this week?"
 - "Compare turbopress.de with turbometrics.io"
 - "Scan https://new-client-site.com and show me the results" *(any URL, even unmonitored ones)*
-- "Start a scan for example.com in the EU region"
+- "Start a scan for example.com from Helsinki"
 
 **Real User Monitoring**
 - "Show Core Web Vitals for turbopress.de"
@@ -24,7 +24,7 @@ Ask your AI assistant questions like:
 - "Show all open alerts"
 - "List my recent scans filtered by status"
 - "Show details for alert #123"
-- "Mark all alerts as read"
+- "Mark the open score alerts as read"
 - "What plan am I on and how many API requests do I have left today?"
 
 ## Requirements
@@ -41,16 +41,21 @@ That's it. Sign-in happens in your browser — there is no token to copy.
 | `get_latest_scan` | Latest scan result: score, findings, TTFB, Core Web Vitals, report link |
 | `get_scan_history` | Score history — works for monitored and new domains |
 | `get_findings` | Detailed findings for a specific scan |
-| `list_alerts` | List open or resolved alerts |
+| `list_alerts` | List open, unread, resolved or all alerts |
 | `get_rum_summary` | Real User Monitoring summary: Core Web Vitals p75 values |
 | `get_rum_metric_history` | Daily trend for a RUM metric (LCP, CLS, INP, FCP, TTFB) |
 | `get_rum_pages` | Slowest pages ranked by metric |
 | `compare_domains` | Compare two domains side by side, with a report link for each |
-| `trigger_scan` | Start a scan for any URL — new or monitored; supports region, force, and auth |
+| `trigger_scan` | Start a scan for any URL — new or monitored; supports region (de-fsn1, de-nbg1, fi-hel1), force, and auth |
 | `list_scans` | List scans — filterable by domain, status and page, with report links |
 | `get_alert` | Get details for a specific alert |
-| `mark_alerts_read` | Mark alerts as read |
+| `mark_alerts_read` | Mark the given alerts as read (by ID) |
 | `get_account_info` | Account details: plan, API limits, RUM status |
+
+Every tool carries MCP annotations (`title`, `readOnlyHint`, `destructiveHint`,
+`idempotentHint`, `openWorldHint`). Twelve tools only read your account.
+`mark_alerts_read` changes the read state of the alerts you name, and
+`trigger_scan` is the only tool that reaches out to third-party websites.
 
 ## Authentication
 

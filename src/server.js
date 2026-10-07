@@ -1,8 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
+import { readFileSync } from 'fs';
 
 import { extractToken } from './auth.js';
+
+const { version: SERVER_VERSION } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+);
 
 import { listDomains } from './tools/listDomains.js';
 import { getLatestScan } from './tools/getLatestScan.js';
@@ -41,7 +46,46 @@ export const TOOLS = [
   getAlert,
 ];
 
-function jsonSchemaToZod(schema) {
+/**
+ * Ein Feld aus dem JSON-Schema eines Werkzeugs als zod-Typ.
+ *
+ * Bis 1.5.0 wurden verschachtelte Objekte zu z.any() und Arrays zu
+ * z.array(z.any()) — trigger_scan.auth und mark_alerts_read.alert_ids standen
+ * im ausgelieferten Schema also ohne jede Struktur da. Die Verzeichnisse von
+ * Anthropic und OpenAI lesen genau dieses Schema; ein Prueflauf sieht dort,
+ * was das Modell sieht.
+ */
+function fieldToZod(prop) {
+  let field;
+
+  if (prop.enum) {
+    field = prop.enum.every((v) => typeof v === 'string')
+      ? z.enum(prop.enum)
+      : z.union(prop.enum.map((v) => z.literal(v)));
+  } else if (prop.type === 'string') {
+    field = z.string();
+  } else if (prop.type === 'integer') {
+    field = z.number().int();
+  } else if (prop.type === 'number') {
+    field = z.number();
+  } else if (prop.type === 'boolean') {
+    field = z.boolean();
+  } else if (prop.type === 'array') {
+    field = z.array(prop.items ? fieldToZod(prop.items) : z.any());
+  } else if (prop.type === 'object' && prop.properties) {
+    field = jsonSchemaToZod(prop);
+  } else {
+    field = z.any();
+  }
+
+  if (prop.description) {
+    field = field.describe(prop.description);
+  }
+
+  return field;
+}
+
+export function jsonSchemaToZod(schema) {
   if (!schema || schema.type !== 'object') return z.object({});
 
   const shape = {};
@@ -49,25 +93,7 @@ function jsonSchemaToZod(schema) {
   const required = new Set(schema.required ?? []);
 
   for (const [key, prop] of Object.entries(props)) {
-    let field;
-
-    if (prop.enum) {
-      field = z.enum(prop.enum);
-    } else if (prop.type === 'string') {
-      field = z.string();
-    } else if (prop.type === 'number') {
-      field = z.number();
-    } else if (prop.type === 'boolean') {
-      field = z.boolean();
-    } else if (prop.type === 'array') {
-      field = z.array(z.any());
-    } else {
-      field = z.any();
-    }
-
-    if (prop.description) {
-      field = field.describe(prop.description);
-    }
+    let field = fieldToZod(prop);
 
     if (!required.has(key)) {
       if (prop.default !== undefined) {
@@ -102,15 +128,27 @@ export async function createMcpTransport(req, res) {
     throw Object.assign(new Error('Missing or invalid Authorization header'), { status: 401 });
   }
 
+  // Name und Version stehen in serverInfo und sind das Erste, was ein
+  // Verzeichnis-Prueflauf vom Server sieht. Bis 1.5.0 stand dort der interne
+  // Projektname 'wpperf-mcp' mit einer nie gepflegten Version 1.0.0.
   const server = new McpServer({
-    name: 'wpperf-mcp',
-    version: '1.0.0',
+    name: 'turbometrics',
+    title: 'turbometrics',
+    version: SERVER_VERSION,
   });
 
   for (const tool of TOOLS) {
     const zodSchema = jsonSchemaToZod(tool.inputSchema);
 
-    server.tool(tool.name, tool.description, zodSchema.shape, async (args) => {
+    // registerTool statt des veralteten server.tool(): nur hier lassen sich
+    // title und annotations mitgeben, die beide Verzeichnisse an jedem
+    // Werkzeug verlangen (siehe src/tools/annotations.js).
+    server.registerTool(tool.name, {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: zodSchema.shape,
+      annotations: { title: tool.title, ...tool.annotations },
+    }, async (args) => {
       try {
         const result = await tool.handler(token, args);
         return {

@@ -3,33 +3,22 @@ import { jest } from '@jest/globals';
 const mockApi = { get: jest.fn(), post: jest.fn() };
 jest.unstable_mockModule('../src/api.js', () => ({ api: mockApi }));
 
-const [
-  { listDomains },
-  { getLatestScan },
-  { getScanHistory },
-  { getFindings },
-  { listAlerts },
-  { getRumSummary },
-  { compareDomains },
-  { triggerScan },
-  { markAlertsRead },
-  { listScans },
-  { getAlert },
-  { getAccountInfo },
-] = await Promise.all([
-  import('../src/tools/listDomains.js'),
-  import('../src/tools/getLatestScan.js'),
-  import('../src/tools/getScanHistory.js'),
-  import('../src/tools/getFindings.js'),
-  import('../src/tools/listAlerts.js'),
-  import('../src/tools/getRumSummary.js'),
-  import('../src/tools/compareDomains.js'),
-  import('../src/tools/triggerScan.js'),
-  import('../src/tools/markAlertsRead.js'),
-  import('../src/tools/listScans.js'),
-  import('../src/tools/getAlert.js'),
-  import('../src/tools/getAccountInfo.js'),
-]);
+// Nacheinander statt Promise.all: seit mehrere Werkzeuge src/tools/domain.js
+// teilen, scheitert das parallele Laden unter jest-ESM mit "not linked".
+const { listDomains } = await import('../src/tools/listDomains.js');
+const { getLatestScan } = await import('../src/tools/getLatestScan.js');
+const { getScanHistory } = await import('../src/tools/getScanHistory.js');
+const { getFindings } = await import('../src/tools/getFindings.js');
+const { listAlerts } = await import('../src/tools/listAlerts.js');
+const { getRumSummary } = await import('../src/tools/getRumSummary.js');
+const { compareDomains } = await import('../src/tools/compareDomains.js');
+const { triggerScan } = await import('../src/tools/triggerScan.js');
+const { markAlertsRead } = await import('../src/tools/markAlertsRead.js');
+const { listScans } = await import('../src/tools/listScans.js');
+const { getAlert } = await import('../src/tools/getAlert.js');
+const { getAccountInfo } = await import('../src/tools/getAccountInfo.js');
+const { getRumMetricHistory } = await import('../src/tools/getRumMetricHistory.js');
+const { getRumPages } = await import('../src/tools/getRumPages.js');
 
 const TOKEN = 'test-token';
 const reset = () => { mockApi.get.mockReset(); mockApi.post.mockReset(); };
@@ -63,7 +52,7 @@ describe('getLatestScan', () => {
 
   test('does two-step call and maps result', async () => {
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123', submitted_url: 'https://example.com/' }] })
       .mockResolvedValueOnce({
         data: {
           public_id: 'SCAN123',
@@ -94,7 +83,7 @@ describe('getLatestScan', () => {
 
   test('passes report_url through', async () => {
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123', submitted_url: 'https://example.com/' }] })
       .mockResolvedValueOnce({
         data: {
           public_id: 'SCAN123',
@@ -109,7 +98,7 @@ describe('getLatestScan', () => {
 
   test('report_url is null when the API does not send one', async () => {
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123', submitted_url: 'https://example.com/' }] })
       .mockResolvedValueOnce({ data: { public_id: 'SCAN123', result: {} } });
 
     const result = await getLatestScan.handler(TOKEN, { domain_url: 'https://example.com/' });
@@ -119,7 +108,7 @@ describe('getLatestScan', () => {
   test('throws when no scan found', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] });
     await expect(getLatestScan.handler(TOKEN, { domain_url: 'https://unknown.com/' }))
-      .rejects.toThrow('Kein fertiger Scan');
+      .rejects.toThrow('No finished scan found');
   });
 });
 
@@ -144,7 +133,7 @@ describe('getScanHistory', () => {
     // fallback scans endpoint also empty
     mockApi.get.mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } });
     await expect(getScanHistory.handler(TOKEN, { domain_url: 'https://unknown.com/' }))
-      .rejects.toThrow('Keine Scans gefunden für');
+      .rejects.toThrow('No finished scans found');
   });
 
   test('searches multiple pages to find domain', async () => {
@@ -184,27 +173,39 @@ describe('listAlerts', () => {
   test('requests open alerts by default', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] });
     await listAlerts.handler(TOKEN, {});
-    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts?status=open');
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts?status=open&limit=50&page=1');
   });
 
   test('requests resolved alerts', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] });
     await listAlerts.handler(TOKEN, { status: 'resolved' });
-    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts?status=resolved');
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts?status=resolved&limit=50&page=1');
   });
 
-  test('no query string for status=all', async () => {
+  test('no status filter for status=all', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] });
-    await listAlerts.handler(TOKEN, { status: 'all' });
-    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts');
+    await listAlerts.handler(TOKEN, { status: 'all', page: 2 });
+    expect(mockApi.get).toHaveBeenCalledWith(TOKEN, '/alerts?limit=50&page=2');
   });
 
-  test('maps alert fields', async () => {
+  test('maps the fields the API actually sends', async () => {
+    // Form aus ApiAlertController::formatAlert. Bis 1.5.0 las das Werkzeug
+    // domain/metric/threshold/triggered_at und lieferte leere Alerts.
     mockApi.get.mockResolvedValueOnce({
-      data: [{ id: 1, domain: 'example.com', metric: 'score', threshold: 80, triggered_at: '2026-01-01T00:00:00Z', resolved_at: null }],
+      data: [{
+        id: 7, type: 'score_drop', severity: 'warning', title: 'Score dropped', message: 'From 90 to 70',
+        is_read: false, is_dismissed: false, url: 'https://example.com/', host: 'example.com',
+        scan_id: 'SCAN1', created_at: '2026-10-01T00:00:00Z', resolved_at: null,
+      }],
+      meta: { total: 1, current_page: 1, last_page: 1 },
     });
     const result = await listAlerts.handler(TOKEN, { status: 'open' });
-    expect(result[0]).toMatchObject({ id: 1, domain: 'example.com', metric: 'score' });
+    expect(result.alerts[0]).toEqual({
+      id: 7, type: 'score_drop', severity: 'warning', title: 'Score dropped', message: 'From 90 to 70',
+      host: 'example.com', url: 'https://example.com/', scan_id: 'SCAN1', is_read: false,
+      created_at: '2026-10-01T00:00:00Z', resolved_at: null,
+    });
+    expect(result.meta).toEqual({ total: 1, current_page: 1, last_page: 1 });
   });
 });
 
@@ -218,13 +219,13 @@ describe('getRumSummary', () => {
       .mockResolvedValueOnce({ data: { domain: 'example.com', period: '30d', cwv_pass: true, metrics: {} } });
 
     await getRumSummary.handler(TOKEN, { domain_url: 'https://example.com/', period: '30d' });
-    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/rum/sites/5/summary?period=30d');
+    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/rum/sites/5/summary?period=30d&device=all');
   });
 
   test('throws when site not found', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } });
     await expect(getRumSummary.handler(TOKEN, { domain_url: 'https://unknown.com/' }))
-      .rejects.toThrow('RUM-Site nicht gefunden');
+      .rejects.toThrow('No RUM site found for unknown.com');
   });
 
   test('returns correct summary shape', async () => {
@@ -233,7 +234,7 @@ describe('getRumSummary', () => {
       .mockResolvedValueOnce({ data: { domain: 'example.com', period: '7d', cwv_pass: false, metrics: { LCP: { p75: 2500 } } } });
 
     const result = await getRumSummary.handler(TOKEN, { domain_url: 'https://example.com/', period: '7d' });
-    expect(result).toEqual({ domain: 'example.com', period: '7d', cwv_pass: false, metrics: { LCP: { p75: 2500 } } });
+    expect(result).toMatchObject({ domain: 'example.com', period: '7d', cwv_pass: false, metrics: { LCP: { p75: 2500 } } });
   });
 });
 
@@ -241,8 +242,8 @@ describe('getRumSummary', () => {
 describe('compareDomains', () => {
   beforeEach(reset);
 
-  const scanListA = { data: [{ public_id: 'A1' }] };
-  const scanListB = { data: [{ public_id: 'B1' }] };
+  const scanListA = { data: [{ public_id: 'A1', submitted_url: 'https://a.com/' }] };
+  const scanListB = { data: [{ public_id: 'B1', submitted_url: 'https://b.com/' }] };
   const detailA = { data: { public_id: 'A1', result: { scores: { overall: 94 }, metrics: { ttfb_ms: 200 }, findings: [] } } };
   const detailB = { data: { public_id: 'B1', result: { scores: { overall: 85 }, metrics: { ttfb_ms: 500 }, findings: [{ severity: 'bad' }, { severity: 'warning' }] } } };
 
@@ -278,7 +279,7 @@ describe('compareDomains', () => {
   test('throws when domain A has no scan', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce(scanListB);
     await expect(compareDomains.handler(TOKEN, { domain_url_a: 'https://a.com/', domain_url_b: 'https://b.com/' }))
-      .rejects.toThrow('Kein Scan gefunden für: https://a.com/');
+      .rejects.toThrow('No finished scan found for a.com');
   });
 });
 
@@ -311,17 +312,32 @@ describe('triggerScan', () => {
 describe('markAlertsRead', () => {
   beforeEach(reset);
 
-  test('posts alert_ids to /alerts/mark-read', async () => {
-    mockApi.post.mockResolvedValueOnce({ data: { message: 'Done' } });
-    const result = await markAlertsRead.handler(TOKEN, { alert_ids: ['1', '2'] });
-    expect(mockApi.post).toHaveBeenCalledWith(TOKEN, '/alerts/mark-read', { alert_ids: ['1', '2'] });
-    expect(result.message).toBe('Done');
+  test('sends the IDs as integers under ids, the field the API reads', async () => {
+    // Regressionstest: bis 1.5.0 ging 'alert_ids' raus. Die API kennt nur
+    // 'ids' und markiert ohne es ALLE ungelesenen Alerts des Kontos.
+    mockApi.post.mockResolvedValueOnce({ data: { marked_read: 2 } });
+    const result = await markAlertsRead.handler(TOKEN, { alert_ids: [1, '2'] });
+    expect(mockApi.post).toHaveBeenCalledWith(TOKEN, '/alerts/mark-read', { ids: [1, 2] });
+    expect(result).toEqual({ marked_read: 2, requested: 2 });
   });
 
-  test('uses fallback message if API returns none', async () => {
-    mockApi.post.mockResolvedValueOnce({ data: {} });
-    const result = await markAlertsRead.handler(TOKEN, { alert_ids: ['1'] });
-    expect(result.message).toBeTruthy();
+  test('refuses an empty list instead of letting the API mark everything', async () => {
+    await expect(markAlertsRead.handler(TOKEN, { alert_ids: [] })).rejects.toThrow(/non-empty/);
+    await expect(markAlertsRead.handler(TOKEN, {})).rejects.toThrow(/non-empty/);
+    expect(mockApi.post).not.toHaveBeenCalled();
+  });
+
+  test('refuses IDs that are not positive integers', async () => {
+    for (const bad of ['abc', 0, -3, 1.5, '12a', null]) {
+      await expect(markAlertsRead.handler(TOKEN, { alert_ids: [bad] })).rejects.toThrow(/Invalid alert ID/);
+    }
+    expect(mockApi.post).not.toHaveBeenCalled();
+  });
+
+  test('caps the number of IDs per call', async () => {
+    const ids = Array.from({ length: 101 }, (_, i) => i + 1);
+    await expect(markAlertsRead.handler(TOKEN, { alert_ids: ids })).rejects.toThrow(/At most 100/);
+    expect(mockApi.post).not.toHaveBeenCalled();
   });
 });
 
@@ -507,5 +523,145 @@ describe('triggerScan prueft die Eingabe', () => {
       url: 'https://example.com',
       auth: { type: 'header', header_name: 'X-A', header_value: 'b' },
     });
+  });
+});
+
+// ─── Abgleich mit der API (1.6.0) ────────────────────────────────────────────
+describe('triggerScan regions', () => {
+  beforeEach(reset);
+
+  test('offers exactly the regions the API validates', async () => {
+    // config/plans.php allowed_regions. Die frueheren eu/us/asia kannte die
+    // API nicht, jeder Aufruf mit Region scheiterte an der Validierung.
+    expect(triggerScan.inputSchema.properties.region.enum).toEqual(['de-fsn1', 'de-nbg1', 'fi-hel1']);
+    mockApi.post.mockResolvedValueOnce({ data: { id: 'N', status: 'queued' } });
+    await triggerScan.handler(TOKEN, { domain_url: 'https://example.com', region: 'fi-hel1' });
+    expect(mockApi.post).toHaveBeenCalledWith(TOKEN, '/scans', { url: 'https://example.com', region: 'fi-hel1' });
+  });
+});
+
+describe('getScanHistory fallback', () => {
+  beforeEach(reset);
+
+  test('reads public_id, finished_at and result.scores.overall from the scan list', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } })
+      .mockResolvedValueOnce({
+        data: [{ public_id: 'S1', submitted_url: 'https://example.com/', region: 'de-fsn1', requested_at: '2026-10-01T10:00:00Z', finished_at: '2026-10-01T10:01:00Z', result: { scores: { overall: 77 } } }],
+        meta: { current_page: 1, last_page: 1 },
+      });
+    const result = await getScanHistory.handler(TOKEN, { domain_url: 'example.com' });
+    expect(result).toEqual([{ scan_id: 'S1', score: 77, created_at: '2026-10-01T10:01:00Z', region: 'de-fsn1' }]);
+  });
+
+  test('stops paging after a bounded number of pages', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } });
+    for (let i = 0; i < 10; i++) {
+      mockApi.get.mockResolvedValueOnce({ data: [{ public_id: `S${i}`, submitted_url: 'https://example.com/', result: null }], meta: { last_page: 10 } });
+    }
+    const result = await getScanHistory.handler(TOKEN, { domain_url: 'https://example.com' });
+    expect(result).toHaveLength(4);
+    expect(mockApi.get).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe('domain input without scheme', () => {
+  beforeEach(reset);
+
+  test('RUM tools accept example.com and match the host case-insensitively', async () => {
+    // new URL('example.com') warf frueher einen nackten TypeError.
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ id: 3, domain: 'example.com' }], meta: { last_page: 1 } })
+      .mockResolvedValueOnce({ data: [] });
+    const result = await getRumPages.handler(TOKEN, { domain_url: 'Example.com' });
+    expect(result.domain).toBe('example.com');
+    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/rum/sites/3/pages?metric=LCP&period=24h&limit=25');
+  });
+
+  test('RUM metric history finds the site the same way', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ id: 3, domain: 'example.com' }], meta: { last_page: 1 } })
+      .mockResolvedValueOnce({ data: [{ date: '2026-10-01', p75: 2100, p50: 1500, samples: 40 }] });
+    const result = await getRumMetricHistory.handler(TOKEN, { domain_url: 'example.com', metric: 'LCP' });
+    expect(result.history).toEqual([{ date: '2026-10-01', p75: 2100, p50: 1500, samples: 40 }]);
+  });
+});
+
+describe('compareDomains lab metrics', () => {
+  beforeEach(reset);
+
+  test('includes desktop and mobile lab metrics', async () => {
+    const detail = (id) => ({ data: { public_id: id, result: { scores: { overall: 90 }, metrics: { ttfb_ms: 100, desktop: { lcp_ms: 1200, cls: 0.01, fcp_ms: 800, tbt_ms: 50 }, mobile: { lcp_ms: 2500 } }, findings: [] } } });
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ public_id: 'A1', submitted_url: 'https://a.com/' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'B1', submitted_url: 'https://b.com/' }] })
+      .mockResolvedValueOnce(detail('A1'))
+      .mockResolvedValueOnce(detail('B1'));
+    const result = await compareDomains.handler(TOKEN, { domain_url_a: 'a.com', domain_url_b: 'b.com' });
+    expect(result.a.desktop).toEqual({ lcp_ms: 1200, fcp_ms: 800, cls: 0.01, tbt_ms: 50 });
+    expect(result.a.mobile.lcp_ms).toBe(2500);
+  });
+});
+
+describe('scan lookup by domain', () => {
+  beforeEach(reset);
+
+  test('skips scans of other hosts that only contain the name', async () => {
+    // /scans?domain= ist ein LIKE. "example.com" trifft auch myexample.com
+    // und example.com.au — frueher nahm limit=1 einfach den neuesten davon.
+    mockApi.get
+      .mockResolvedValueOnce({ data: [
+        { public_id: 'WRONG1', submitted_url: 'https://myexample.com/' },
+        { public_id: 'WRONG2', submitted_url: 'https://example.com.au/' },
+        { public_id: 'RIGHT', submitted_url: 'https://www.example.com/blog' },
+      ] })
+      .mockResolvedValueOnce({ data: { public_id: 'RIGHT', submitted_url: 'https://www.example.com/blog', result: {} } });
+
+    const result = await getLatestScan.handler(TOKEN, { domain_url: 'example.com' });
+
+    expect(mockApi.get).toHaveBeenNthCalledWith(1, TOKEN, '/scans?domain=example.com&status=finished&limit=50');
+    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/scans/RIGHT');
+    expect(result.submitted_url).toBe('https://www.example.com/blog');
+  });
+
+  test('errors instead of answering with another site', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: [{ public_id: 'X', submitted_url: 'https://shop.example.com/' }] });
+    await expect(getLatestScan.handler(TOKEN, { domain_url: 'example.com' })).rejects.toThrow('No finished scan found for example.com');
+  });
+
+  test('history fallback drops look-alike hosts', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [], meta: { last_page: 1 } })
+      .mockResolvedValueOnce({ data: [
+        { public_id: 'A', submitted_url: 'https://example.com/', finished_at: 't1', result: { scores: { overall: 80 } } },
+        { public_id: 'B', submitted_url: 'https://notexample.com/', finished_at: 't2', result: { scores: { overall: 20 } } },
+      ], meta: { last_page: 1 } });
+    const result = await getScanHistory.handler(TOKEN, { domain_url: 'https://example.com' });
+    expect(result.map((e) => e.scan_id)).toEqual(['A']);
+  });
+
+  test('RUM lookup ignores a leading www on either side', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ id: 9, domain: 'example.com' }], meta: { last_page: 1 } })
+      .mockResolvedValueOnce({ data: { domain: 'example.com', metrics: {} } });
+    await getRumSummary.handler(TOKEN, { domain_url: 'https://www.example.com' });
+    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/rum/sites/9/summary?period=30d&device=all');
+  });
+});
+
+describe('getAccountInfo daily limit', () => {
+  beforeEach(reset);
+
+  test('reports an unlimited plan as null, not as an exhausted 0', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: { plan: { key: 'agency', api_daily_limit: 0 }, api_usage: { used_today: 12, limit_today: 0 } } });
+    const result = await getAccountInfo.handler(TOKEN);
+    expect(result.plan.api_daily_limit).toBeNull();
+    expect(result.api_usage.limit_today).toBeNull();
+  });
+
+  test('keeps a real limit', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: { plan: { api_daily_limit: 1000 }, api_usage: { limit_today: 1000 } } });
+    const result = await getAccountInfo.handler(TOKEN);
+    expect(result.plan.api_daily_limit).toBe(1000);
   });
 });

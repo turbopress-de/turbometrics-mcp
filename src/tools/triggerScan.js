@@ -68,28 +68,52 @@ function checkAuth(auth) {
   return clean;
 }
 
+// Die Regionen der API (config/plans.php allowed_regions). Bis 1.5.0 bot das
+// Werkzeug 'eu', 'us' und 'asia' an — die API kennt keine davon und wies jeden
+// Aufruf mit Region als Validierungsfehler ab.
+export const SCAN_REGIONS = ['de-fsn1', 'de-nbg1', 'fi-hel1'];
+
 export const triggerScan = {
   name: 'trigger_scan',
-  description: 'Starts an immediate scan for any URL — including completely new domains not yet monitored. Returns a scan_id usable with get_findings once the scan completes.',
+  title: 'Start a scan',
+  description: 'Starts a performance scan of any public website, including domains the user does not monitor yet. turbometrics fetches the page from its own servers (desktop and mobile), so this reaches out to the given third-party site. If a recent result for the same URL exists it is reused instead (cached: true) unless force is true; such a reused result may not be readable from this account, see the returned message. Each call counts toward the plan\'s hourly scan limit. Returns a scan_id (a public_id). The scan runs in the background; check its status with list_scans and read the result with get_findings once it is finished.',
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
   inputSchema: {
     type: 'object',
     properties: {
       domain_url: {
         type: 'string',
-        description: 'URL to scan (e.g. https://example.com)',
+        description: 'URL to scan, e.g. https://example.com or example.com (http and https only)',
       },
       region: {
         type: 'string',
-        enum: ['eu', 'us', 'asia'],
-        description: 'Scan region (optional)',
+        enum: SCAN_REGIONS,
+        description: 'Scan location: de-fsn1 (Falkenstein), de-nbg1 (Nuremberg) or fi-hel1 (Helsinki). Optional; which regions are available depends on the plan.',
       },
       force: {
         type: 'boolean',
-        description: 'Force a fresh scan even if a recent cached result exists',
+        description: 'Run a fresh scan even if a recent cached result exists (default: false)',
       },
       auth: {
         type: 'object',
-        description: 'Optional authentication: {type: "basic", username, password} or {type: "header", header_name, header_value}',
+        description: 'Optional access credentials for a protected site, e.g. a staging site behind HTTP Basic Auth. Only pass credentials the user explicitly provided for this site. Requires a plan with authenticated scans.',
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['basic', 'header'],
+            description: 'basic = HTTP Basic Auth with username and password; header = one custom request header',
+          },
+          username: { type: 'string', description: 'Basic Auth username (type basic)' },
+          password: { type: 'string', description: 'Basic Auth password (type basic)' },
+          header_name: { type: 'string', description: 'Header name, e.g. X-Access-Token (type header)' },
+          header_value: { type: 'string', description: 'Header value (type header)' },
+        },
+        required: ['type'],
       },
     },
     required: ['domain_url'],
@@ -105,13 +129,16 @@ export const triggerScan = {
     const response = await api.post(token, '/scans', body);
     const result = response.data ?? response;
 
+    // Ein Treffer aus dem Zwischenspeicher kann ein oeffentlicher Scan eines
+    // anderen Nutzers sein (ScanCacheService). Den liefern get_findings und
+    // list_scans nicht aus, weil die API dort auf user_id filtert.
     return {
       scan_id: result.id ?? result.scan_id,
       status: result.status,
       cached: result.cached ?? false,
       message: result.cached
-        ? 'Cached result returned — use force:true to trigger a fresh scan.'
-        : 'Scan queued. Use get_findings(scan_id) or get_latest_scan(url) once complete.',
+        ? 'A recent result for this URL already exists and was reused. It may come from a public scan that is not stored in this account; if get_findings cannot find this scan_id, call trigger_scan again with force: true to run a fresh scan for the account.'
+        : 'Scan queued. Check the status with list_scans and read the result with get_findings(scan_id) once it is finished.',
     };
   },
 };

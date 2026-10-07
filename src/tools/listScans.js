@@ -1,14 +1,17 @@
 import { api } from '../api.js';
+import { READ_ONLY } from './annotations.js';
 
 export const listScans = {
   name: 'list_scans',
-  description: 'Lists scans — filterable by domain, status and page.',
+  title: 'List scans',
+  description: 'Lists the user\'s own scans, newest first, with public_id, status (queued, running, finished or failed), scanned URL, region, request and finish time, scores and a report link. Optionally filter by domain (substring match on the URL) and status; paginated with limit and page. Use a public_id with get_findings.',
+  annotations: READ_ONLY,
   inputSchema: {
     type: 'object',
     properties: {
       domain: {
         type: 'string',
-        description: 'URL filter: only scans of this domain (e.g. https://example.com)',
+        description: 'Only scans whose URL contains this text, e.g. example.com',
       },
       status: {
         type: 'string',
@@ -16,13 +19,13 @@ export const listScans = {
         description: 'Filter by scan status',
       },
       limit: {
-        type: 'number',
+        type: 'integer',
         description: 'Number of results (default: 20, max: 50)',
         default: 20,
       },
       page: {
-        type: 'number',
-        description: 'Page (default: 1)',
+        type: 'integer',
+        description: 'Page number, starting at 1 (default: 1)',
         default: 1,
       },
     },
