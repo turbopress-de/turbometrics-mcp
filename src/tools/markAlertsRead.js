@@ -22,6 +22,8 @@ function checkIds(alert_ids) {
     throw new Error(`At most ${MAX_IDS} alert IDs per call.`);
   }
 
+  // Die Umwandlung von "12" in 12 greift nur bei direktem Aufruf (Tests,
+  // kuenftige Aufrufer); ueber MCP prueft das zod-Schema vorher auf Ganzzahlen.
   return alert_ids.map((raw) => {
     const id = typeof raw === 'string' && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : raw;
 

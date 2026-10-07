@@ -23,6 +23,50 @@ export function hostOf(domain_url) {
 }
 
 /**
+ * Vergleichsform eines Hosts: ohne fuehrendes "www.". So behandelt auch das
+ * Backend Domains (RumSite::findForDomain, RumController).
+ */
+export function siteKey(host) {
+  return String(host).toLowerCase().replace(/^www\./, '');
+}
+
+/** Gehoeren beide Angaben zum selben Host (www egal)? Unlesbares zaehlt als nein. */
+export function sameSite(a, b) {
+  try {
+    return siteKey(hostOf(a)) === siteKey(hostOf(b));
+  } catch {
+    return false;
+  }
+}
+
+// So viele Scans werden durchsucht, um den passenden Host zu finden.
+const SCAN_LOOKUP_LIMIT = 50;
+
+/**
+ * Der neueste fertige Scan genau dieser Domain.
+ *
+ * /scans?domain= sucht per LIKE '%…%' in normalized_url. "example.com" trifft
+ * damit auch www.myexample.com, shop.example.com oder example.com.au — und
+ * limit=1 nahm den neuesten davon. Das Modell bekam still den Scan einer
+ * fremden Seite. Deshalb mehr Treffer holen und auf den Host filtern.
+ */
+export async function latestFinishedScan(token, domain_url) {
+  const host = hostOf(domain_url);
+  const data = await api.get(
+    token,
+    `/scans?domain=${encodeURIComponent(siteKey(host))}&status=finished&limit=${SCAN_LOOKUP_LIMIT}`
+  );
+  const scans = Array.isArray(data) ? data : (data.data ?? []);
+  const scan = scans.find((s) => sameSite(s.submitted_url, host));
+
+  if (!scan) {
+    throw new Error(`No finished scan found for ${host}. Start one with trigger_scan.`);
+  }
+
+  return scan;
+}
+
+/**
  * Die RUM-Site zu einer Domain. Stand vorher dreimal gleich in den drei
  * RUM-Werkzeugen.
  */
@@ -32,7 +76,7 @@ export async function findRumSite(token, domain_url) {
 
   while (true) {
     const data = await api.get(token, `/rum/sites?page=${page}&limit=50`);
-    const site = (data.data ?? []).find((s) => String(s.domain).toLowerCase() === host);
+    const site = (data.data ?? []).find((s) => siteKey(s.domain) === siteKey(host));
 
     if (site) return { site, host };
     if (page >= (data.meta?.last_page ?? 1)) break;

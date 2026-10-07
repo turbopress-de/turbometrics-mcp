@@ -1,15 +1,13 @@
 import { api } from '../api.js';
 import { READ_ONLY } from './annotations.js';
+import { latestFinishedScan } from './domain.js';
 
 async function getLatestScanDetail(token, domain_url) {
-  const listData = await api.get(token, `/scans?domain=${encodeURIComponent(domain_url)}&status=finished&limit=1`);
-  const scans = Array.isArray(listData) ? listData : (listData.data ?? []);
-  if (scans.length === 0) throw new Error(`No finished scan found for ${domain_url}. Start one with trigger_scan.`);
-
-  const { public_id } = scans[0];
+  const { public_id, submitted_url } = await latestFinishedScan(token, domain_url);
   const detail = await api.get(token, `/scans/${encodeURIComponent(public_id)}`);
   return {
     public_id,
+    submitted_url: detail.data?.submitted_url ?? submitted_url ?? null,
     report_url: detail.data?.report_url ?? null,
     finished_at: detail.data?.finished_at ?? null,
     result: detail.data?.result ?? {},
@@ -52,8 +50,9 @@ export const compareDomains = {
       getLatestScanDetail(token, domain_url_b),
     ]);
 
-    const extract = ({ public_id, report_url, finished_at, result }, url) => ({
+    const extract = ({ public_id, submitted_url, report_url, finished_at, result }, url) => ({
       domain: url,
+      submitted_url,
       public_id,
       report_url,
       finished_at,

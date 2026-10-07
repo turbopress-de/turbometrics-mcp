@@ -52,7 +52,7 @@ describe('getLatestScan', () => {
 
   test('does two-step call and maps result', async () => {
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123', submitted_url: 'https://example.com/' }] })
       .mockResolvedValueOnce({
         data: {
           public_id: 'SCAN123',
@@ -83,7 +83,7 @@ describe('getLatestScan', () => {
 
   test('passes report_url through', async () => {
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123', submitted_url: 'https://example.com/' }] })
       .mockResolvedValueOnce({
         data: {
           public_id: 'SCAN123',
@@ -98,7 +98,7 @@ describe('getLatestScan', () => {
 
   test('report_url is null when the API does not send one', async () => {
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'SCAN123', submitted_url: 'https://example.com/' }] })
       .mockResolvedValueOnce({ data: { public_id: 'SCAN123', result: {} } });
 
     const result = await getLatestScan.handler(TOKEN, { domain_url: 'https://example.com/' });
@@ -242,8 +242,8 @@ describe('getRumSummary', () => {
 describe('compareDomains', () => {
   beforeEach(reset);
 
-  const scanListA = { data: [{ public_id: 'A1' }] };
-  const scanListB = { data: [{ public_id: 'B1' }] };
+  const scanListA = { data: [{ public_id: 'A1', submitted_url: 'https://a.com/' }] };
+  const scanListB = { data: [{ public_id: 'B1', submitted_url: 'https://b.com/' }] };
   const detailA = { data: { public_id: 'A1', result: { scores: { overall: 94 }, metrics: { ttfb_ms: 200 }, findings: [] } } };
   const detailB = { data: { public_id: 'B1', result: { scores: { overall: 85 }, metrics: { ttfb_ms: 500 }, findings: [{ severity: 'bad' }, { severity: 'warning' }] } } };
 
@@ -279,7 +279,7 @@ describe('compareDomains', () => {
   test('throws when domain A has no scan', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce(scanListB);
     await expect(compareDomains.handler(TOKEN, { domain_url_a: 'https://a.com/', domain_url_b: 'https://b.com/' }))
-      .rejects.toThrow('No finished scan found for https://a.com/');
+      .rejects.toThrow('No finished scan found for a.com');
   });
 });
 
@@ -547,7 +547,7 @@ describe('getScanHistory fallback', () => {
     mockApi.get
       .mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } })
       .mockResolvedValueOnce({
-        data: [{ public_id: 'S1', region: 'de-fsn1', requested_at: '2026-10-01T10:00:00Z', finished_at: '2026-10-01T10:01:00Z', result: { scores: { overall: 77 } } }],
+        data: [{ public_id: 'S1', submitted_url: 'https://example.com/', region: 'de-fsn1', requested_at: '2026-10-01T10:00:00Z', finished_at: '2026-10-01T10:01:00Z', result: { scores: { overall: 77 } } }],
         meta: { current_page: 1, last_page: 1 },
       });
     const result = await getScanHistory.handler(TOKEN, { domain_url: 'example.com' });
@@ -557,7 +557,7 @@ describe('getScanHistory fallback', () => {
   test('stops paging after a bounded number of pages', async () => {
     mockApi.get.mockResolvedValueOnce({ data: [], meta: { current_page: 1, last_page: 1 } });
     for (let i = 0; i < 10; i++) {
-      mockApi.get.mockResolvedValueOnce({ data: [{ public_id: `S${i}`, result: null }], meta: { last_page: 10 } });
+      mockApi.get.mockResolvedValueOnce({ data: [{ public_id: `S${i}`, submitted_url: 'https://example.com/', result: null }], meta: { last_page: 10 } });
     }
     const result = await getScanHistory.handler(TOKEN, { domain_url: 'https://example.com' });
     expect(result).toHaveLength(4);
@@ -593,12 +593,75 @@ describe('compareDomains lab metrics', () => {
   test('includes desktop and mobile lab metrics', async () => {
     const detail = (id) => ({ data: { public_id: id, result: { scores: { overall: 90 }, metrics: { ttfb_ms: 100, desktop: { lcp_ms: 1200, cls: 0.01, fcp_ms: 800, tbt_ms: 50 }, mobile: { lcp_ms: 2500 } }, findings: [] } } });
     mockApi.get
-      .mockResolvedValueOnce({ data: [{ public_id: 'A1' }] })
-      .mockResolvedValueOnce({ data: [{ public_id: 'B1' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'A1', submitted_url: 'https://a.com/' }] })
+      .mockResolvedValueOnce({ data: [{ public_id: 'B1', submitted_url: 'https://b.com/' }] })
       .mockResolvedValueOnce(detail('A1'))
       .mockResolvedValueOnce(detail('B1'));
     const result = await compareDomains.handler(TOKEN, { domain_url_a: 'a.com', domain_url_b: 'b.com' });
     expect(result.a.desktop).toEqual({ lcp_ms: 1200, fcp_ms: 800, cls: 0.01, tbt_ms: 50 });
     expect(result.a.mobile.lcp_ms).toBe(2500);
+  });
+});
+
+describe('scan lookup by domain', () => {
+  beforeEach(reset);
+
+  test('skips scans of other hosts that only contain the name', async () => {
+    // /scans?domain= ist ein LIKE. "example.com" trifft auch myexample.com
+    // und example.com.au — frueher nahm limit=1 einfach den neuesten davon.
+    mockApi.get
+      .mockResolvedValueOnce({ data: [
+        { public_id: 'WRONG1', submitted_url: 'https://myexample.com/' },
+        { public_id: 'WRONG2', submitted_url: 'https://example.com.au/' },
+        { public_id: 'RIGHT', submitted_url: 'https://www.example.com/blog' },
+      ] })
+      .mockResolvedValueOnce({ data: { public_id: 'RIGHT', submitted_url: 'https://www.example.com/blog', result: {} } });
+
+    const result = await getLatestScan.handler(TOKEN, { domain_url: 'example.com' });
+
+    expect(mockApi.get).toHaveBeenNthCalledWith(1, TOKEN, '/scans?domain=example.com&status=finished&limit=50');
+    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/scans/RIGHT');
+    expect(result.submitted_url).toBe('https://www.example.com/blog');
+  });
+
+  test('errors instead of answering with another site', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: [{ public_id: 'X', submitted_url: 'https://shop.example.com/' }] });
+    await expect(getLatestScan.handler(TOKEN, { domain_url: 'example.com' })).rejects.toThrow('No finished scan found for example.com');
+  });
+
+  test('history fallback drops look-alike hosts', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [], meta: { last_page: 1 } })
+      .mockResolvedValueOnce({ data: [
+        { public_id: 'A', submitted_url: 'https://example.com/', finished_at: 't1', result: { scores: { overall: 80 } } },
+        { public_id: 'B', submitted_url: 'https://notexample.com/', finished_at: 't2', result: { scores: { overall: 20 } } },
+      ], meta: { last_page: 1 } });
+    const result = await getScanHistory.handler(TOKEN, { domain_url: 'https://example.com' });
+    expect(result.map((e) => e.scan_id)).toEqual(['A']);
+  });
+
+  test('RUM lookup ignores a leading www on either side', async () => {
+    mockApi.get
+      .mockResolvedValueOnce({ data: [{ id: 9, domain: 'example.com' }], meta: { last_page: 1 } })
+      .mockResolvedValueOnce({ data: { domain: 'example.com', metrics: {} } });
+    await getRumSummary.handler(TOKEN, { domain_url: 'https://www.example.com' });
+    expect(mockApi.get).toHaveBeenNthCalledWith(2, TOKEN, '/rum/sites/9/summary?period=30d&device=all');
+  });
+});
+
+describe('getAccountInfo daily limit', () => {
+  beforeEach(reset);
+
+  test('reports an unlimited plan as null, not as an exhausted 0', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: { plan: { key: 'agency', api_daily_limit: 0 }, api_usage: { used_today: 12, limit_today: 0 } } });
+    const result = await getAccountInfo.handler(TOKEN);
+    expect(result.plan.api_daily_limit).toBeNull();
+    expect(result.api_usage.limit_today).toBeNull();
+  });
+
+  test('keeps a real limit', async () => {
+    mockApi.get.mockResolvedValueOnce({ data: { plan: { api_daily_limit: 1000 }, api_usage: { limit_today: 1000 } } });
+    const result = await getAccountInfo.handler(TOKEN);
+    expect(result.plan.api_daily_limit).toBe(1000);
   });
 });

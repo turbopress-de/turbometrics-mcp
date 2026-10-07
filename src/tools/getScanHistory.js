@@ -1,13 +1,15 @@
 import { api } from '../api.js';
 import { READ_ONLY } from './annotations.js';
-import { hostOf } from './domain.js';
+import { hostOf, sameSite, siteKey } from './domain.js';
 
 async function findDomainId(token, host) {
   let page = 1;
   while (true) {
     const data = await api.get(token, `/domains?page=${page}&limit=50`);
     const items = data.data ?? [];
-    const found = items.find((d) => hostOf(d.url) === host);
+    // sameSite statt hostOf: eine einzelne unlesbare gespeicherte URL darf
+    // nicht den ganzen Aufruf mit einem Fehler beenden.
+    const found = items.find((d) => sameSite(d.url, host));
     if (found) return found.id;
     if (page >= (data.meta?.last_page ?? 1)) break;
     page++;
@@ -56,9 +58,10 @@ export const getScanHistory = {
     let page = 1;
     const entries = [];
     while (page <= MAX_FALLBACK_PAGES) {
-      const data = await api.get(token, `/scans?domain=${encodeURIComponent(domain_url)}&status=finished&limit=50&page=${page}`);
+      const data = await api.get(token, `/scans?domain=${encodeURIComponent(siteKey(host))}&status=finished&limit=50&page=${page}`);
       const items = data.data ?? [];
-      for (const scan of items) {
+      // Die API sucht per LIKE — fremde Hosts mit aehnlichem Namen aussortieren.
+      for (const scan of items.filter((s) => sameSite(s.submitted_url, host))) {
         entries.push({
           scan_id: scan.public_id,
           score: scan.result?.scores?.overall ?? null,

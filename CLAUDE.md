@@ -55,6 +55,7 @@ PORT=3001
 | mark_alerts_read | write | Alerts als gelesen markieren (nur die genannten IDs, nie leer) |
 | list_scans | read | Scans mit Status-/Domainfilter, seitenweise |
 | get_alert | read | Einzelner Alert |
+| get_account_info | read | Account-Info: Plan, API-Limits, RUM-Status |
 
 ### Werkzeug-Hinweise (seit 1.6.0)
 Jedes Werkzeug traegt `title` und `annotations` mit allen vier Hinweisen
@@ -64,7 +65,6 @@ Lesende Werkzeuge nehmen `READ_ONLY` aus `src/tools/annotations.js`.
 `openWorldHint: true` hat nur `trigger_scan`, weil es fremde Websites abruft.
 Ein neues Werkzeug braucht eine bewusste Entscheidung und einen Eintrag in
 `test/toolAnnotations.test.js`, sonst wird der Test rot.
-| get_account_info | read | Account-Info: Plan, API-Limits, RUM-Status |
 
 ## Authentifizierung
 Jeder MCP-Request muss einen Authorization: Bearer {api_token} Header mitschicken.

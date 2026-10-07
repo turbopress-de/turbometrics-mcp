@@ -76,7 +76,7 @@ export const SCAN_REGIONS = ['de-fsn1', 'de-nbg1', 'fi-hel1'];
 export const triggerScan = {
   name: 'trigger_scan',
   title: 'Start a scan',
-  description: 'Starts a performance scan of any public website, including domains the user does not monitor yet. turbometrics fetches the page from its own servers (desktop and mobile), so this reaches out to the given third-party site. If a recent result for the same URL exists it is returned instead (cached: true) unless force is true. Each call counts toward the plan\'s hourly scan limit. Returns a scan_id (a public_id). The scan runs in the background; check its status with list_scans and read the result with get_findings once it is finished.',
+  description: 'Starts a performance scan of any public website, including domains the user does not monitor yet. turbometrics fetches the page from its own servers (desktop and mobile), so this reaches out to the given third-party site. If a recent result for the same URL exists it is reused instead (cached: true) unless force is true; such a reused result may not be readable from this account, see the returned message. Each call counts toward the plan\'s hourly scan limit. Returns a scan_id (a public_id). The scan runs in the background; check its status with list_scans and read the result with get_findings once it is finished.',
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,
@@ -129,12 +129,15 @@ export const triggerScan = {
     const response = await api.post(token, '/scans', body);
     const result = response.data ?? response;
 
+    // Ein Treffer aus dem Zwischenspeicher kann ein oeffentlicher Scan eines
+    // anderen Nutzers sein (ScanCacheService). Den liefern get_findings und
+    // list_scans nicht aus, weil die API dort auf user_id filtert.
     return {
       scan_id: result.id ?? result.scan_id,
       status: result.status,
       cached: result.cached ?? false,
       message: result.cached
-        ? 'Cached result returned — use force:true to trigger a fresh scan.'
+        ? 'A recent result for this URL already exists and was reused. It may come from a public scan that is not stored in this account; if get_findings cannot find this scan_id, call trigger_scan again with force: true to run a fresh scan for the account.'
         : 'Scan queued. Check the status with list_scans and read the result with get_findings(scan_id) once it is finished.',
     };
   },
