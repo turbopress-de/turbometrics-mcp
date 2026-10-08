@@ -1,9 +1,6 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { readFileSync } from 'fs';
-
-import { extractToken } from './auth.js';
 
 const { version: SERVER_VERSION } = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8')
@@ -109,21 +106,23 @@ export function jsonSchemaToZod(schema) {
   return z.object(shape);
 }
 
-// Pro Anfrage entsteht ein eigener McpServer samt Transport — der Server
-// arbeitet zustandslos. Bisher wurde keiner davon je geschlossen; der Zaehler
-// belegt in test/mcpEndpoint.test.js, dass das Aufraeumen wirklich laeuft.
-let liveTransports = 0;
+// Pro Anfrage entsteht ein eigener McpServer — der Server arbeitet
+// zustandslos. Den Transport dazu verwaltet seit SDK 2.x createMcpHandler; der
+// Zaehler belegt in test/mcpEndpoint.test.js, dass jede Instanz auch wieder
+// geschlossen wird.
+let liveServers = 0;
 
-export function liveTransportCount() {
-  return liveTransports;
+export function liveServerCount() {
+  return liveServers;
 }
 
 /**
- * @param res optional. Ist eine Antwort dabei, haengt sich das Aufraeumen an
- *            ihr Ende — bei SSE also an den Moment, in dem der Client geht.
+ * Baut den McpServer fuer genau eine Anfrage, mit dem Token des Aufrufers.
  */
-export async function createMcpTransport(req, res) {
-  const token = extractToken(req);
+export function createMcpServer(token) {
+  // Nur die zweite Absicherung: index.js antwortet vorher mit 401. Wirft es
+  // hier, macht createMcpHandler daraus einen 500 — status wird dort nicht
+  // ausgewertet.
   if (!token) {
     throw Object.assign(new Error('Missing or invalid Authorization header'), { status: 401 });
   }
@@ -138,15 +137,14 @@ export async function createMcpTransport(req, res) {
   });
 
   for (const tool of TOOLS) {
-    const zodSchema = jsonSchemaToZod(tool.inputSchema);
-
     // registerTool statt des veralteten server.tool(): nur hier lassen sich
     // title und annotations mitgeben, die beide Verzeichnisse an jedem
-    // Werkzeug verlangen (siehe src/tools/annotations.js).
+    // Werkzeug verlangen (siehe src/tools/annotations.js). SDK 2.x erwartet
+    // das Schema als z.object(), nicht mehr als blosse Form.
     server.registerTool(tool.name, {
       title: tool.title,
       description: tool.description,
-      inputSchema: zodSchema.shape,
+      inputSchema: jsonSchemaToZod(tool.inputSchema),
       annotations: { title: tool.title, ...tool.annotations },
     }, async (args) => {
       try {
@@ -173,30 +171,42 @@ export async function createMcpTransport(req, res) {
     });
   }
 
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  });
-
-  // Abgewartet: connect() verdrahtet die Handler zwar synchron, laeuft danach
-  // aber noch in transport.start(). Ohne await beginnt handleRequest unter
-  // Umstaenden, bevor der Transport fertig gestartet ist.
-  await server.connect(transport);
-
-  liveTransports++;
+  liveServers++;
 
   let closed = false;
-  const cleanup = async () => {
+  const release = () => {
     if (closed) return;
     closed = true;
-    liveTransports--;
-
-    // server.close() schliesst den Transport mit; der zweite Aufruf ist die
-    // Absicherung fuer den Fall, dass connect() schon getrennt war.
-    await server.close().catch(() => {});
-    await transport.close().catch(() => {});
+    liveServers--;
   };
 
-  res?.once('close', cleanup);
+  // Zwei Haken, weil das SDK zwei Wege kennt: Eine verbundene Instanz meldet
+  // ihr Ende ueber onclose — so schliesst der Weg der Revision 2026-07-28 nach
+  // der Antwort. Einige Abzweige davor (subscriptions/listen, Scope-Abfrage,
+  // Mcp-Param-Koepfe) rufen close() auf einer nie verbundenen Instanz auf;
+  // dort laeuft onclose nicht, also zaehlt close() selbst mit.
+  server.server.onclose = release;
 
-  return transport;
+  const close = server.close.bind(server);
+  server.close = async () => {
+    try {
+      await close();
+    } finally {
+      release();
+    }
+  };
+
+  return server;
 }
+
+/**
+ * Der eine Handler fuer /mcp. Er bedient Clients der Revision 2026-07-28 und,
+ * zustandslos, die der 2025er-Reihe aus derselben Fabrik — so koennen die
+ * beiden Wege nicht auseinanderlaufen. Der Token kommt als authInfo herein,
+ * geprueft hat ihn index.js vorher.
+ */
+export const mcpHandler = createMcpHandler(({ authInfo }) => createMcpServer(authInfo?.token), {
+  // Fast immer abgewiesene Client-Anfragen (falsche Revision, fehlende
+  // Koepfe), erst nach der Tokenpruefung erreichbar — kein Serverfehler.
+  onerror: (err) => console.warn('MCP:', err.message),
+});

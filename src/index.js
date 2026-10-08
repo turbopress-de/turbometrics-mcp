@@ -1,11 +1,14 @@
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { createMcpTransport } from './server.js';
+import { toNodeHandler } from '@modelcontextprotocol/node';
+import { mcpHandler } from './server.js';
 import { assertTokenValid, extractToken, unauthorizedHeaders } from './auth.js';
-import { normalizeProtocolVersion } from './protocolVersion.js';
+import { isModernProtocolVersionKnown, normalizeProtocolVersion } from './protocolVersion.js';
 
 const PORT = process.env.PORT || 3001;
+
+const nodeHandler = toNodeHandler(mcpHandler);
 
 /**
  * Ein abgelaufener Token muss auf HTTP-Ebene als 401 herauskommen, nicht als
@@ -23,16 +26,25 @@ async function handleMcp(req, res, body) {
 
     await assertTokenValid(token);
 
-    const downgraded = normalizeProtocolVersion(req);
+    const downgraded = normalizeProtocolVersion(req, body);
 
     if (downgraded) {
       // Die einzige Spur, an der sich ablesen laesst, welche Revision die
       // Clients inzwischen sprechen — und wann das SDK nachziehen sollte.
-      console.log(`Protokollrevision ${downgraded} herabgestuft (SDK kennt sie nicht)`);
+      // Eine Revision, die das SDK fuehrt, kam hier nur ohne _meta-Umschlag
+      // an: dann liegt es am Client, nicht am SDK.
+      const reason = isModernProtocolVersionKnown(downgraded)
+        ? 'Kopf ohne _meta-Umschlag'
+        : 'SDK kennt sie nicht';
+      console.log(`Protokollrevision ${downgraded} herabgestuft (${reason})`);
     }
 
-    const transport = await createMcpTransport(req, res);
-    await transport.handleRequest(req, res, body);
+    // toNodeHandler reicht req.auth als authInfo an die Fabrik in server.js
+    // weiter. clientId und scopes verlangt der Typ; ausgewertet werden sie
+    // nicht, die Rechte prueft die Laravel-API am Token selbst.
+    req.auth = { token, clientId: 'turbometrics', scopes: [] };
+
+    await nodeHandler(req, res, body);
   } catch (err) {
     const status = err.status ?? 500;
 

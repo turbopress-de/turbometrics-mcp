@@ -1,13 +1,13 @@
 import { jest } from '@jest/globals';
 
 const { normalizeProtocolVersion } = await import('../src/protocolVersion.js');
-const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js');
+const { LATEST_PROTOCOL_VERSION, PROTOCOL_VERSION_META_KEY } = await import('@modelcontextprotocol/server');
 
 const reqWith = (version) => ({
   headers: version === undefined ? {} : { 'mcp-protocol-version': version },
-  // Der Transport liest ueber @hono/node-server ausschliesslich rawHeaders.
-  // Wer nur req.headers aendert, aendert nichts, was ankommt — genau dieser
-  // Irrtum kostete am 2026-08-24 einen Durchgang.
+  // Der Transport von SDK 1.x las ueber @hono/node-server ausschliesslich
+  // rawHeaders. Wer nur req.headers aendert, aenderte dort nichts, was
+  // ankommt — genau dieser Irrtum kostete am 2026-08-24 einen Durchgang.
   rawHeaders: version === undefined
     ? ['Accept', 'application/json']
     : ['Accept', 'application/json', 'MCP-Protocol-Version', version],
@@ -62,5 +62,32 @@ describe('normalizeProtocolVersion', () => {
     // Der Rueckgabewert ist die einzige Spur, an der sich ablesen laesst,
     // welche Revision die Clients inzwischen sprechen.
     expect(normalizeProtocolVersion(reqWith('2027-01-01'))).toBe('2027-01-01');
+  });
+
+  test('laesst eine unbekannte Revision im _meta-Umschlag unangetastet', () => {
+    // Ein Client der Reihe 2026-07-28 nennt seine Revision im Rumpf. Dem
+    // antwortet das SDK selbst mit UnsupportedProtocolVersion samt Liste,
+    // und er handelt herunter. Nur den Kopf umzuschreiben, wuerde Kopf und
+    // Umschlag gegeneinander stellen — das SDK weist das mit -32020 ab.
+    const req = reqWith('2027-01-01');
+    const body = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+      params: { _meta: { [PROTOCOL_VERSION_META_KEY]: '2027-01-01' } },
+    };
+
+    expect(normalizeProtocolVersion(req, body)).toBeNull();
+    expect(req.headers['mcp-protocol-version']).toBe('2027-01-01');
+  });
+
+  test('stuft 2026-07-28 ohne Umschlag weiter herab', () => {
+    // So kam claude.ai bis 1.6.0 an: neuer Kopf, Rumpf im alten Stil. Ohne
+    // Herabstufung wiese das SDK diese Anfrage jetzt mit -32602 ab.
+    const req = reqWith('2026-07-28');
+    const body = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
+
+    expect(normalizeProtocolVersion(req, body)).toBe('2026-07-28');
+    expect(req.headers['mcp-protocol-version']).toBe(LATEST_PROTOCOL_VERSION);
   });
 });
