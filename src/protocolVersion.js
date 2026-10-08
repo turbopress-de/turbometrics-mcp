@@ -5,6 +5,17 @@ import {
 } from '@modelcontextprotocol/server';
 
 /**
+ * Die Revisionen der neuen Reihe, die das SDK beherrscht. Das SDK fuehrt die
+ * Liste nur intern; test/mcpEndpoint.test.js gleicht sie mit der Antwort auf
+ * server/discover ab, damit sie bei einem SDK-Update nicht stehen bleibt.
+ */
+export const MODERN_PROTOCOL_VERSIONS = ['2026-07-28'];
+
+export function isModernProtocolVersionKnown(version) {
+  return MODERN_PROTOCOL_VERSIONS.includes(version);
+}
+
+/**
  * Ob die Nachricht ihre Revision selbst im Rumpf nennt (`_meta`-Umschlag der
  * Revision 2026-07-28 und spaeter).
  */

@@ -91,4 +91,3 @@ describe('normalizeProtocolVersion', () => {
     expect(req.headers['mcp-protocol-version']).toBe(LATEST_PROTOCOL_VERSION);
   });
 });
-

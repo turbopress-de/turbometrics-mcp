@@ -4,7 +4,7 @@ import express from 'express';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import { mcpHandler } from './server.js';
 import { assertTokenValid, extractToken, unauthorizedHeaders } from './auth.js';
-import { normalizeProtocolVersion } from './protocolVersion.js';
+import { isModernProtocolVersionKnown, normalizeProtocolVersion } from './protocolVersion.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -31,7 +31,12 @@ async function handleMcp(req, res, body) {
     if (downgraded) {
       // Die einzige Spur, an der sich ablesen laesst, welche Revision die
       // Clients inzwischen sprechen — und wann das SDK nachziehen sollte.
-      console.log(`Protokollrevision ${downgraded} herabgestuft (SDK kennt sie nicht)`);
+      // Eine Revision, die das SDK fuehrt, kam hier nur ohne _meta-Umschlag
+      // an: dann liegt es am Client, nicht am SDK.
+      const reason = isModernProtocolVersionKnown(downgraded)
+        ? 'Kopf ohne _meta-Umschlag'
+        : 'SDK kennt sie nicht';
+      console.log(`Protokollrevision ${downgraded} herabgestuft (${reason})`);
     }
 
     // toNodeHandler reicht req.auth als authInfo an die Fabrik in server.js

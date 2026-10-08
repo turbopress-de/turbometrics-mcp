@@ -16,6 +16,7 @@ jest.unstable_mockModule('../src/auth.js', () => ({
 
 const { createApp } = await import('../src/index.js');
 const { liveServerCount } = await import('../src/server.js');
+const { MODERN_PROTOCOL_VERSIONS } = await import('../src/protocolVersion.js');
 const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/server');
 
 let server;
@@ -101,6 +102,14 @@ describe('Revision 2026-07-28', () => {
     expect(body.result._meta['io.modelcontextprotocol/serverInfo'].name).toBe('turbometrics');
   });
 
+  test('protocolVersion.js kennt dieselben neuen Revisionen wie das SDK', async () => {
+    // Das SDK fuehrt die Liste nur intern. Bringt ein Update eine weitere
+    // Revision, wird dieser Test rot, bis MODERN_PROTOCOL_VERSIONS nachzieht.
+    const body = await json(await modern('server/discover'));
+
+    expect([...MODERN_PROTOCOL_VERSIONS].sort()).toEqual([...body.result.supportedVersions].sort());
+  });
+
   test('beantwortet tools/list', async () => {
     const res = await modern('tools/list');
 
@@ -172,6 +181,10 @@ describe('POST /mcp', () => {
 
   test('laesst auch auf dem Weg der Revision 2026-07-28 keinen Server zurueck', async () => {
     await modern('tools/list');
+    // subscriptions/listen schliesst die Instanz, ohne sie je zu verbinden —
+    // dort lief onclose nicht, und der Zaehler blieb stehen.
+    const listen = await modern('subscriptions/listen');
+    await listen.body?.cancel();
     await waitForNoLiveServers();
 
     expect(liveServerCount()).toBe(0);
@@ -184,6 +197,17 @@ describe('POST /mcp', () => {
     const res = await toolsList({ 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION });
 
     expect(res.headers.get('x-powered-by')).toBeNull();
+  });
+
+  test.each(['GET', 'DELETE'])('beantwortet %s mit 405', async (method) => {
+    // Zustandslos gibt es keinen Strom zum Offenhalten und keine Sitzung zum
+    // Beenden. SDK 1.x hielt bei GET einen stummen SSE-Strom offen.
+    const res = await fetch(`${base}/mcp`, {
+      method,
+      headers: { Accept: 'text/event-stream', Authorization: 'Bearer egal' },
+    });
+
+    expect(res.status).toBe(405);
   });
 
   test('verlangt einen Token', async () => {

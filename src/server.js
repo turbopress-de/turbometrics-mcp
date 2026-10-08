@@ -120,6 +120,9 @@ export function liveServerCount() {
  * Baut den McpServer fuer genau eine Anfrage, mit dem Token des Aufrufers.
  */
 export function createMcpServer(token) {
+  // Nur die zweite Absicherung: index.js antwortet vorher mit 401. Wirft es
+  // hier, macht createMcpHandler daraus einen 500 — status wird dort nicht
+  // ausgewertet.
   if (!token) {
     throw Object.assign(new Error('Missing or invalid Authorization header'), { status: 401 });
   }
@@ -170,14 +173,27 @@ export function createMcpServer(token) {
 
   liveServers++;
 
-  // Beide Wege im SDK — die Revision 2026-07-28 und der zustandslose Rueckfall
-  // fuer 2025er-Clients — schliessen die Instanz, wenn die Antwort durch ist
-  // oder der Client geht. onclose ist die eine Stelle, die beide erreichen.
   let closed = false;
-  server.server.onclose = () => {
+  const release = () => {
     if (closed) return;
     closed = true;
     liveServers--;
+  };
+
+  // Zwei Haken, weil das SDK zwei Wege kennt: Eine verbundene Instanz meldet
+  // ihr Ende ueber onclose — so schliesst der Weg der Revision 2026-07-28 nach
+  // der Antwort. Einige Abzweige davor (subscriptions/listen, Scope-Abfrage,
+  // Mcp-Param-Koepfe) rufen close() auf einer nie verbundenen Instanz auf;
+  // dort laeuft onclose nicht, also zaehlt close() selbst mit.
+  server.server.onclose = release;
+
+  const close = server.close.bind(server);
+  server.close = async () => {
+    try {
+      await close();
+    } finally {
+      release();
+    }
   };
 
   return server;
@@ -190,5 +206,7 @@ export function createMcpServer(token) {
  * geprueft hat ihn index.js vorher.
  */
 export const mcpHandler = createMcpHandler(({ authInfo }) => createMcpServer(authInfo?.token), {
-  onerror: (err) => console.error('MCP:', err.message),
+  // Fast immer abgewiesene Client-Anfragen (falsche Revision, fehlende
+  // Koepfe), erst nach der Tokenpruefung erreichbar — kein Serverfehler.
+  onerror: (err) => console.warn('MCP:', err.message),
 });
