@@ -13,7 +13,7 @@ jest.unstable_mockModule('../src/auth.js', () => ({
 
 const { createApp } = await import('../src/index.js');
 const { TOOLS } = await import('../src/server.js');
-const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js');
+const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/server');
 
 /**
  * Anthropic (Claude Connectors Directory) und OpenAI (ChatGPT-Plugin-
@@ -47,6 +47,15 @@ const EXPECTED = {
 
 let server;
 let listed;
+let listedModern;
+
+// Der Transport antwortet als SSE oder JSON, je nach Accept-Aushandlung.
+const parse = async (res) => {
+  const text = await res.text();
+  return text.trimStart().startsWith('{')
+    ? JSON.parse(text)
+    : JSON.parse(text.split('\n').find((l) => l.startsWith('data: ')).slice(6));
+};
 
 beforeAll(async () => {
   server = createApp().listen(0);
@@ -64,13 +73,34 @@ beforeAll(async () => {
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
   });
 
-  // Der Transport antwortet als SSE oder JSON, je nach Accept-Aushandlung.
-  const text = await res.text();
-  const json = text.trimStart().startsWith('{')
-    ? JSON.parse(text)
-    : JSON.parse(text.split('\n').find((l) => l.startsWith('data: ')).slice(6));
+  listed = (await parse(res)).result.tools;
 
-  listed = json.result.tools;
+  // Dasselbe ueber die Revision 2026-07-28 (seit 1.6.1). Ein Prueflauf der
+  // Verzeichnisse kann jeden der beiden Wege nehmen.
+  const resModern = await fetch(`${base}/mcp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      Authorization: 'Bearer egal',
+      'MCP-Protocol-Version': '2026-07-28',
+      'Mcp-Method': 'tools/list',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+      params: {
+        _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientInfo': { name: 'test', version: '1' },
+          'io.modelcontextprotocol/clientCapabilities': {},
+        },
+      },
+    }),
+  });
+
+  listedModern = (await parse(resModern)).result.tools;
 });
 
 afterAll(async () => {
@@ -78,6 +108,10 @@ afterAll(async () => {
 });
 
 describe('tools/list', () => {
+  test('lists the same tools over 2025-11-25 and 2026-07-28', () => {
+    expect(listedModern).toEqual(listed);
+  });
+
   test('lists every registered tool and no unexpected one', () => {
     expect(listed.map((t) => t.name).sort()).toEqual(Object.keys(EXPECTED).sort());
     expect(TOOLS).toHaveLength(Object.keys(EXPECTED).length);

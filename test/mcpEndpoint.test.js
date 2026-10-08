@@ -15,8 +15,8 @@ jest.unstable_mockModule('../src/auth.js', () => ({
 }));
 
 const { createApp } = await import('../src/index.js');
-const { liveTransportCount } = await import('../src/server.js');
-const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js');
+const { liveServerCount } = await import('../src/server.js');
+const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/server');
 
 let server;
 let base;
@@ -60,6 +60,65 @@ const initialize = (headers = {}) =>
 // Transport am 2026-08-24 mit 400 abgewiesen.
 const toolsList = (headers = {}) =>
   post({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, headers);
+
+// Revision 2026-07-28: kein initialize mehr, jede Anfrage traegt ihre Revision
+// im _meta-Umschlag und im Kopf, dazu den Methodennamen.
+const modern = (method, revision = '2026-07-28') =>
+  post({
+    jsonrpc: '2.0',
+    id: 3,
+    method,
+    params: {
+      _meta: {
+        'io.modelcontextprotocol/protocolVersion': revision,
+        'io.modelcontextprotocol/clientInfo': { name: 'test', version: '1' },
+        'io.modelcontextprotocol/clientCapabilities': {},
+      },
+    },
+  }, { 'MCP-Protocol-Version': revision, 'Mcp-Method': method });
+
+const json = async (res) => {
+  const text = await res.text();
+  return text.trimStart().startsWith('{')
+    ? JSON.parse(text)
+    : JSON.parse(text.split('\n').find((l) => l.startsWith('data: ')).slice(6));
+};
+
+const waitForNoLiveServers = async () => {
+  // res 'close' laeuft, nachdem der Client die Antwort hat — kurz nachfassen.
+  for (let i = 0; i < 50 && liveServerCount() > 0; i++) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+};
+
+describe('Revision 2026-07-28', () => {
+  test('nennt sie in server/discover', async () => {
+    const res = await modern('server/discover');
+    const body = await json(res);
+
+    expect(res.status).toBe(200);
+    expect(body.result.supportedVersions).toContain('2026-07-28');
+    expect(body.result._meta['io.modelcontextprotocol/serverInfo'].name).toBe('turbometrics');
+  });
+
+  test('beantwortet tools/list', async () => {
+    const res = await modern('tools/list');
+
+    expect(res.status).toBe(200);
+    expect((await json(res)).result.tools.length).toBeGreaterThan(0);
+  });
+
+  test('antwortet auf eine unbekannte neuere Revision mit der Liste der bekannten', async () => {
+    // Hier darf normalizeProtocolVersion nicht eingreifen: der Client der
+    // neuen Reihe handelt anhand dieser Antwort selbst herunter.
+    const res = await modern('server/discover', '2099-01-01');
+    const body = await json(res);
+
+    expect(res.status).toBe(400);
+    expect(body.error.data.supported).toContain('2026-07-28');
+    expect(body.error.data.requested).toBe('2099-01-01');
+  });
+});
 
 describe('POST /mcp', () => {
   test('beantwortet initialize ohne Versionskopf', async () => {
@@ -106,13 +165,16 @@ describe('POST /mcp', () => {
     // schloss sie je. Bei einem zustandslosen Server ist das ein Leck, das mit
     // jedem Aufruf waechst.
     await toolsList({ 'MCP-Protocol-Version': LATEST_PROTOCOL_VERSION });
+    await waitForNoLiveServers();
 
-    // res 'close' laeuft, nachdem der Client die Antwort hat — kurz nachfassen.
-    for (let i = 0; i < 50 && liveTransportCount() > 0; i++) {
-      await new Promise((r) => setTimeout(r, 10));
-    }
+    expect(liveServerCount()).toBe(0);
+  });
 
-    expect(liveTransportCount()).toBe(0);
+  test('laesst auch auf dem Weg der Revision 2026-07-28 keinen Server zurueck', async () => {
+    await modern('tools/list');
+    await waitForNoLiveServers();
+
+    expect(liveServerCount()).toBe(0);
   });
 
   test('nennt die eingesetzte Technik nicht', async () => {

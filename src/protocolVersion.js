@@ -1,39 +1,58 @@
-import { LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
+import {
+  LATEST_PROTOCOL_VERSION,
+  PROTOCOL_VERSION_META_KEY,
+  SUPPORTED_PROTOCOL_VERSIONS,
+} from '@modelcontextprotocol/server';
 
 /**
- * Stuft eine unbekannte Protokollrevision auf die neueste bekannte herunter.
+ * Ob die Nachricht ihre Revision selbst im Rumpf nennt (`_meta`-Umschlag der
+ * Revision 2026-07-28 und spaeter).
+ */
+function claimsRevisionInBody(body) {
+  const meta = body?.params?._meta;
+
+  return meta !== null && typeof meta === 'object' && PROTOCOL_VERSION_META_KEY in meta;
+}
+
+/**
+ * Stuft eine unbekannte Protokollrevision auf die neueste der 2025er-Reihe
+ * herunter — aber nur bei Anfragen im alten Stil.
  *
- * Der Transport weist einen `MCP-Protocol-Version`-Kopf, den er nicht kennt,
- * mit 400 ab. Am 2026-08-24 traf das jeden Werkzeugaufruf aus claude.ai:
- * Claude spricht eine Revision, die das SDK (1.30.0, neueste) noch nicht
- * fuehrt — es reicht bis 2025-11-25. Der Client faellt danach auf ein
- * erneutes `initialize` zurueck und handelt herunter, aber der Aufruf, der
- * den 400 kassiert hat, ist verloren. Fuer den Nutzer sieht das aus, als
- * antworte der Server auf alles mit 400.
+ * Vorgeschichte: Am 2026-08-24 traf jeder Werkzeugaufruf aus claude.ai auf
+ * 400, weil der Transport von SDK 1.x den `MCP-Protocol-Version`-Kopf
+ * 2026-07-28 nicht kannte. Der Client handelte danach zwar per `initialize`
+ * herunter, aber der Aufruf, der den 400 kassiert hatte, war verloren.
  *
- * Die Herabstufung ist vertretbar, weil dieser Server zustandslos arbeitet:
- * jede Anfrage bekommt einen frischen Transport, der ohnehin nur die
- * Revisionen beherrscht, die das SDK mitbringt. Wir behaupten hier also
- * nichts, was wir nicht koennten — wir sagen es nur, statt die Anfrage
- * wegzuwerfen.
+ * Seit SDK 2.x (1.6.1) kennt der Server 2026-07-28 selbst. Der Schutz bleibt
+ * fuer die naechste Revision, aber er unterscheidet jetzt zwei Faelle:
  *
- * Faellt weg, sobald das SDK die neuere Revision fuehrt: dann steht sie in
- * SUPPORTED_PROTOCOL_VERSIONS und dieser Zweig greift nicht mehr.
+ * - Nennt der Rumpf die Revision im `_meta`-Umschlag, ist das ein Client der
+ *   neuen Reihe. Dem antwortet das SDK bei einer unbekannten Revision mit
+ *   einem ordentlichen UnsupportedProtocolVersion samt Liste der unterstuetzten
+ *   Revisionen, und der Client handelt daraufhin herunter. Hier umzuschreiben
+ *   waere schaedlich: Kopf und Umschlag widersprachen sich dann, und das SDK
+ *   weist genau das mit -32020 ab.
+ * - Ohne Umschlag ist es eine Anfrage im 2025er-Stil. Die bedient der Server
+ *   zustandslos und ohnehin nur in den Revisionen, die das SDK mitbringt. Wir
+ *   behaupten mit der Herabstufung also nichts, was wir nicht koennten — wir
+ *   sagen es nur, statt die Anfrage wegzuwerfen.
  *
+ * @param body der bereits geparste Rumpf (bei GET/DELETE undefined)
  * @returns {string|null} die ersetzte Revision, sonst null
  */
-export function normalizeProtocolVersion(req) {
+export function normalizeProtocolVersion(req, body) {
   const requested = req.headers['mcp-protocol-version'];
 
-  if (!requested || SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) {
+  if (!requested || SUPPORTED_PROTOCOL_VERSIONS.includes(requested) || claimsRevisionInBody(body)) {
     return null;
   }
 
   req.headers['mcp-protocol-version'] = LATEST_PROTOCOL_VERSION;
 
-  // Entscheidend: der Transport laeuft ueber @hono/node-server, und der baut
-  // seine Kopfzeilen ausschliesslich aus rawHeaders. Wer nur req.headers
-  // aendert, aendert nichts, was beim Transport ankommt.
+  // Der Node-Adapter des SDK baut seine Request-Kopfzeilen heute aus
+  // req.headers; der Transport von SDK 1.x las ueber @hono/node-server
+  // ausschliesslich rawHeaders. Beide anzupassen haelt die Herabstufung
+  // unabhaengig davon, welchen Weg ein kuenftiger Adapter nimmt.
   const raw = req.rawHeaders;
 
   if (Array.isArray(raw)) {

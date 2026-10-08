@@ -7,7 +7,8 @@ Läuft auf Port 3001, erreichbar über https://turbometrics.io/mcp
 
 ## Tech Stack
 - Node.js 20 (Alpine Docker)
-- @modelcontextprotocol/sdk (offizielles Anthropic SDK)
+- @modelcontextprotocol/server + @modelcontextprotocol/node 2.x (offizielles MCP-SDK, seit 1.6.1; vorher @modelcontextprotocol/sdk 1.x)
+- zod 4 (mindestens 4.2, sonst fehlen die Beschreibungen im Schema)
 - Express (HTTP/SSE Transport)
 - Docker
 
@@ -65,6 +66,17 @@ Lesende Werkzeuge nehmen `READ_ONLY` aus `src/tools/annotations.js`.
 `openWorldHint: true` hat nur `trigger_scan`, weil es fremde Websites abruft.
 Ein neues Werkzeug braucht eine bewusste Entscheidung und einen Eintrag in
 `test/toolAnnotations.test.js`, sonst wird der Test rot.
+
+### Protokollrevisionen (seit 1.6.1)
+`createMcpHandler` in `src/server.js` bedient aus einer Fabrik beide Reihen:
+2026-07-28 (Revision im `_meta`-Umschlag jeder Anfrage, `server/discover`
+statt `initialize`) und zustandslos die 2025er-Reihe bis 2025-11-25. SDK 1.x
+kannte 2026-07-28 nicht, keine 1.x-Version tut das; erst die v2-Pakete.
+`src/protocolVersion.js` stuft unbekannte Revisionen weiter herab, aber nur
+bei Anfragen ohne Umschlag — mit Umschlag handelt das SDK selbst herunter.
+Die Logzeile "Protokollrevision … herabgestuft" zeigt also nur noch Clients
+im alten Stil mit neuem Kopf. GET und DELETE auf /mcp beantwortet das SDK
+jetzt mit 405 (zustandslos gibt es keinen Strom und keine Sitzung).
 
 ## Authentifizierung
 Jeder MCP-Request muss einen Authorization: Bearer {api_token} Header mitschicken.

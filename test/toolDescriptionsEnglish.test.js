@@ -10,7 +10,7 @@ import { TOOLS } from '../src/server.js';
  * richtige Werkzeug waehlt und die Parameter richtig fuellt.
  *
  * Sie sind auch gar nicht pro Kunde uebersetzbar. Die Werkzeugliste entsteht
- * einmal beim Verbindungsaufbau in createMcpTransport(); den Kunden kennt der
+ * pro Anfrage in createMcpServer(); den Kunden kennt der
  * Server zu dem Zeitpunkt nur als Token, und eine API-Rundreise allein fuer
  * die Sprache eines Textes, den nie ein Mensch liest, waere Aufwand ohne
  * Gegenwert.

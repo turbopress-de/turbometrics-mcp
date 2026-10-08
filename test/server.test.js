@@ -14,39 +14,35 @@ jest.unstable_mockModule('../src/tools/compareDomains.js', () => ({ compareDomai
 jest.unstable_mockModule('../src/tools/triggerScan.js', () => ({ triggerScan: makeTool('trigger_scan') }));
 jest.unstable_mockModule('../src/tools/markAlertsRead.js', () => ({ markAlertsRead: makeTool('mark_alerts_read') }));
 
-const { createMcpTransport } = await import('../src/server.js');
+const { createMcpServer, liveServerCount } = await import('../src/server.js');
 
-function makeReq(authHeader) {
-  return { headers: authHeader ? { authorization: authHeader } : {} };
-}
+// Die Pruefung auf einen fehlenden Token sitzt zusaetzlich zu der in index.js
+// auch hier, damit kein Weg einen McpServer ohne Token baut. Dass index.js den
+// Fehler als 401 beantwortet, belegt test/mcpEndpoint.test.js
+// ('verlangt einen Token').
+describe('createMcpServer', () => {
+  test.each([undefined, null, ''])('rejects with 401 without token (%p)', (token) => {
+    expect(() => createMcpServer(token)).toThrow('Missing or invalid Authorization header');
 
-// createMcpTransport wartet server.connect() ab und ist deshalb async. Das
-// nach aussen sichtbare Verhalten ist unveraendert — index.js faengt den
-// Fehler so oder so ab und antwortet mit 401; belegt in
-// test/mcpEndpoint.test.js ('verlangt einen Token').
-describe('createMcpTransport', () => {
-  test('rejects with 401 when Authorization header is missing', async () => {
-    await expect(createMcpTransport(makeReq(null))).rejects.toThrow(
-      'Missing or invalid Authorization header'
-    );
-    await expect(createMcpTransport(makeReq(null))).rejects.toMatchObject({ status: 401 });
+    try {
+      createMcpServer(token);
+    } catch (err) {
+      expect(err.status).toBe(401);
+    }
   });
 
-  test('rejects with 401 when Authorization is not Bearer scheme', async () => {
-    await expect(createMcpTransport(makeReq('Basic abc123'))).rejects.toThrow(
-      'Missing or invalid Authorization header'
-    );
-  });
+  test('returns a server for a token and counts it until closed', async () => {
+    const before = liveServerCount();
+    const server = createMcpServer('valid-token-123');
 
-  test('rejects with 401 when Bearer token is empty', async () => {
-    await expect(createMcpTransport(makeReq('Bearer '))).rejects.toThrow(
-      'Missing or invalid Authorization header'
-    );
-  });
+    expect(typeof server.registerTool).toBe('function');
+    expect(liveServerCount()).toBe(before + 1);
 
-  test('returns transport object for valid Bearer token', async () => {
-    const transport = await createMcpTransport(makeReq('Bearer valid-token-123'));
-    expect(transport).toBeDefined();
-    expect(typeof transport.handleRequest).toBe('function');
+    // Ohne Transport loest close() kein onclose aus; das SDK verbindet die
+    // Instanz in beiden Wegen, bevor es sie schliesst. Hier also direkt.
+    server.server.onclose();
+    server.server.onclose();
+
+    expect(liveServerCount()).toBe(before);
   });
 });
